@@ -49,7 +49,7 @@ class InstagramDataExtractor:
         }
         
         try:
-            response = requests.get(endpoint, params=params)
+            response = requests.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
             return response.json().get("data", [])
         except requests.exceptions.RequestException as e:
@@ -73,7 +73,7 @@ class InstagramDataExtractor:
         }
         
         try:
-            response = requests.get(endpoint, params=params)
+            response = requests.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
