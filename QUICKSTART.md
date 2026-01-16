@@ -37,7 +37,29 @@ pip install -r requirements.txt
 
 ### 3.1 Extract Instagram Data
 
-#### For Your Own Account:
+#### Option A: Web Scraping (Easy - No API Keys Required)
+
+Extract from any public Instagram profile:
+
+```bash
+# Extract posts from a company profile (e.g., Louis Vuitton)
+python instagram_scraper.py louisvuitton
+
+# Extract limited posts
+python instagram_scraper.py louisvuitton --max-posts 12
+
+# Custom output
+python instagram_scraper.py nike --output nike_posts.json
+```
+
+**Output:** `data/instagram_scraped_data.json`
+
+**Note:** Web scraping may violate Instagram's ToS. Use responsibly.
+
+#### Option B: API Extraction (Official - Requires Authorization)
+
+For accounts you manage through Facebook Pages:
+
 ```bash
 # Set your access token
 export INSTAGRAM_ACCESS_TOKEN='YOUR_TOKEN_HERE'
@@ -45,30 +67,20 @@ export INSTAGRAM_ACCESS_TOKEN='YOUR_TOKEN_HERE'
 # Extract all posts (with pagination)
 python instagram_data_extractor.py --all
 
-# Or extract limited posts
-python instagram_data_extractor.py --limit 50
-```
-
-#### For a Business Account (e.g., @louisvuitton):
-
-First, find the Business Account ID:
-```bash
-python get_instagram_id.py
-```
-
-Then extract using the account ID:
-```bash
+# Or extract from a business account
 python instagram_data_extractor.py --user-id 17841405793187218 --all
 ```
-
-**Important:** You can only extract from Business/Creator accounts connected to Facebook Pages you manage.
 
 **Output:** `data/instagram_data.json`
 
 ### 3.2 Download Photos
 
 ```bash
+# Auto-detects which JSON file to use
 python photo_downloader.py
+
+# Or specify a file
+python photo_downloader.py data/instagram_scraped_data.json
 ```
 
 **Output:** Images saved to `images/` directory

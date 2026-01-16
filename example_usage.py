@@ -17,9 +17,32 @@ def example_extract_instagram_data():
     """Example: Extract Instagram data using the API."""
     print_section("STEP 1: Extract Instagram Data")
     
-    print("To extract Instagram data, you need to:")
-    print("1. Set your Instagram access token as an environment variable")
-    print("2. Run the instagram_data_extractor.py script")
+    print("Two options available:")
+    print("\n**Option A: Web Scraping (Recommended for Public Profiles)**")
+    print("Extract from any public Instagram profile without API keys:")
+    print("\nExample commands:")
+    print("  # Extract from a company profile (e.g., Louis Vuitton)")
+    print("  python instagram_scraper.py louisvuitton")
+    print("  ")
+    print("  # Extract limited posts")
+    print("  python instagram_scraper.py louisvuitton --max-posts 12")
+    print("  ")
+    print("  # Custom output")
+    print("  python instagram_scraper.py nike --output nike_posts.json")
+    
+    print("\nProgrammatic usage:")
+    print("""
+from instagram_scraper import InstagramScraper
+
+# Initialize scraper
+scraper = InstagramScraper(delay_range=(2, 5))
+
+# Scrape and save data
+scraper.scrape_and_save('louisvuitton', max_posts=12, output_file='louis_vuitton.json')
+    """)
+    
+    print("\n**Option B: Instagram Graph API (For Accounts You Manage)**")
+    print("For Business/Creator accounts connected to Facebook Pages:")
     print("\nExample commands:")
     print("  export INSTAGRAM_ACCESS_TOKEN='your_token_here'")
     print("  ")
@@ -56,7 +79,11 @@ def example_download_photos():
     
     print("After extracting Instagram data, download the photos:")
     print("\nExample command:")
+    print("  # Auto-detects which JSON file to use")
     print("  python photo_downloader.py")
+    print("  ")
+    print("  # Or specify a custom file")
+    print("  python photo_downloader.py data/instagram_scraped_data.json")
     
     print("\nProgrammatic usage:")
     print("""
@@ -65,8 +92,8 @@ from photo_downloader import PhotoDownloader
 # Initialize downloader
 downloader = PhotoDownloader(output_dir='images', max_retries=3)
 
-# Download from JSON file
-stats = downloader.download_from_json('data/instagram_data.json')
+# Download from JSON file (works with both scraper and API output)
+stats = downloader.download_from_json('data/instagram_scraped_data.json')
 
 # Print statistics
 downloader.print_stats(stats)
@@ -122,26 +149,42 @@ def example_complete_pipeline():
     print_section("Complete Pipeline Example")
     
     print("""
-# Complete workflow example
+# Web Scraping Approach (Simple - No API Keys)
+from instagram_scraper import InstagramScraper
+from photo_downloader import PhotoDownloader
+
+# Step 1: Scrape Instagram data
+scraper = InstagramScraper(delay_range=(2, 5))
+scraper.scrape_and_save('louisvuitton', max_posts=12)
+
+# Step 2: Download photos
+downloader = PhotoDownloader(output_dir='images')
+stats = downloader.download_from_json('data/instagram_scraped_data.json')
+downloader.print_stats(stats)
+
+# Step 3: Analyze images (use Jupyter notebook for full analysis)
+print("Run 'jupyter notebook image_analysis.ipynb' to analyze images")
+
+# OR using API Approach (Official - Requires Auth)
 import os
 from instagram_data_extractor import InstagramDataExtractor
 from photo_downloader import PhotoDownloader
 
-# Step 1: Extract Instagram data
 access_token = os.environ.get('INSTAGRAM_ACCESS_TOKEN')
 if access_token:
+    # Step 1: Extract Instagram data
     extractor = InstagramDataExtractor(access_token)
-    extractor.extract_and_save(user_id='me', limit=25)
+    extractor.extract_and_save(user_id='me', fetch_all=True)
     
     # Step 2: Download photos
     downloader = PhotoDownloader(output_dir='images')
     stats = downloader.download_from_json('data/instagram_data.json')
     downloader.print_stats(stats)
     
-    # Step 3: Analyze images (use Jupyter notebook for full analysis)
+    # Step 3: Analyze images
     print("Run 'jupyter notebook image_analysis.ipynb' to analyze images")
 else:
-    print("Please set INSTAGRAM_ACCESS_TOKEN environment variable")
+    print("Please set INSTAGRAM_ACCESS_TOKEN or use the web scraper")
     """)
 
 

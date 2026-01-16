@@ -101,6 +101,7 @@ class PhotoDownloader:
     def download_from_json(self, json_file: str) -> Dict[str, int]:
         """
         Download all photos from Instagram data JSON file.
+        Supports both API extractor and web scraper output formats.
         
         Args:
             json_file: Path to JSON file containing Instagram data
@@ -117,30 +118,42 @@ class PhotoDownloader:
         
         stats = {"total": 0, "success": 0, "failed": 0, "skipped": 0}
         
-        print(f"Starting download of {len(data)} images...")
+        print(f"Starting download of images from {len(data)} posts...")
         
         for i, post in enumerate(data, 1):
-            photo_url = post.get("photo_url")
-            post_id = post.get("post_id")
-            
-            if not photo_url:
-                print(f"Skipping post {post_id}: No photo URL")
+            # Handle API extractor format (single photo_url)
+            if "photo_url" in post and post.get("photo_url"):
+                photo_urls = [post["photo_url"]]
+            # Handle scraper format (multiple media_urls)
+            elif "media_urls" in post and post.get("media_urls"):
+                photo_urls = post["media_urls"]
+            else:
+                print(f"Skipping post {i}: No media URLs")
                 stats["skipped"] += 1
                 continue
             
-            stats["total"] += 1
-            filename = self._get_filename_from_url(photo_url, post_id)
+            post_id = post.get("post_id") or post.get("shortcode", f"post_{i}")
             
-            print(f"\n[{i}/{len(data)}] Downloading {filename}...")
-            
-            if self.download_image(photo_url, filename):
-                stats["success"] += 1
-            else:
-                stats["failed"] += 1
-            
-            # Delay between downloads
-            if i < len(data):
-                time.sleep(self.delay_between_downloads)
+            # Download all images from this post
+            for j, photo_url in enumerate(photo_urls):
+                stats["total"] += 1
+                
+                # Generate filename
+                if len(photo_urls) > 1:
+                    filename = self._get_filename_from_url(photo_url, f"{post_id}_{j+1}")
+                else:
+                    filename = self._get_filename_from_url(photo_url, post_id)
+                
+                print(f"\n[{i}/{len(data)}] Downloading {filename}...")
+                
+                if self.download_image(photo_url, filename):
+                    stats["success"] += 1
+                else:
+                    stats["failed"] += 1
+                
+                # Delay between downloads
+                if stats["total"] < sum([len(p.get("media_urls", [p.get("photo_url")] if p.get("photo_url") else [])) for p in data]):
+                    time.sleep(self.delay_between_downloads)
         
         return stats
     
@@ -200,15 +213,31 @@ def main():
     Main function to run the photo downloader.
     
     Usage:
-        python photo_downloader.py
+        python photo_downloader.py [json_file]
     """
-    # Default JSON file from instagram_data_extractor.py
-    json_file = "data/instagram_data.json"
+    import sys
+    
+    # Check if a custom JSON file is provided
+    if len(sys.argv) > 1:
+        json_file = sys.argv[1]
+    else:
+        # Try both possible JSON files
+        if os.path.exists("data/instagram_scraped_data.json"):
+            json_file = "data/instagram_scraped_data.json"
+        elif os.path.exists("data/instagram_data.json"):
+            json_file = "data/instagram_data.json"
+        else:
+            print("Error: No Instagram data file found.")
+            print("\nPlease run one of the following first:")
+            print("  - python instagram_scraper.py [username]")
+            print("  - python instagram_data_extractor.py")
+            return
     
     if not os.path.exists(json_file):
         print(f"Error: {json_file} not found.")
-        print("\nPlease run instagram_data_extractor.py first to generate the data file.")
         return
+    
+    print(f"Using data file: {json_file}")
     
     # Initialize downloader
     downloader = PhotoDownloader(output_dir="images", max_retries=3, delay_between_downloads=1.0)
