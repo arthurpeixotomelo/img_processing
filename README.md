@@ -44,10 +44,12 @@ pip install -r requirements.txt
 
 ### Step 1: Extract Instagram Data
 
-First, you need to obtain an Instagram API access token:
+#### Option A: Extract from Your Own Account
+
+First, obtain an Instagram API access token:
 
 1. Go to [Facebook Developers](https://developers.facebook.com/)
-2. Create an app and configure Instagram Basic Display API or Instagram Graph API
+2. Create an app and configure Instagram Graph API
 3. Generate an access token
 
 Set your access token as an environment variable:
@@ -55,10 +57,42 @@ Set your access token as an environment variable:
 export INSTAGRAM_ACCESS_TOKEN='your_access_token_here'
 ```
 
-Run the data extractor:
+Extract data from your account:
 ```bash
+# Extract latest 25 posts (default)
 python instagram_data_extractor.py
+
+# Extract all posts with pagination
+python instagram_data_extractor.py --all
+
+# Extract specific number of posts
+python instagram_data_extractor.py --limit 100
 ```
+
+#### Option B: Extract from a Business Account (e.g., @louisvuitton)
+
+To extract data from another Instagram Business or Creator account:
+
+1. **Get the Instagram Business Account ID:**
+   ```bash
+   python get_instagram_id.py
+   ```
+   This will list all Instagram Business Accounts connected to Facebook Pages you manage.
+
+2. **Extract data using the account ID:**
+   ```bash
+   # Extract all posts from a business account
+   python instagram_data_extractor.py --user-id 17841405793187218 --all
+   
+   # Extract limited posts
+   python instagram_data_extractor.py --user-id 17841405793187218 --limit 50
+   ```
+
+**Important Notes:**
+- You can only extract data from Instagram Business/Creator accounts
+- The account must be connected to a Facebook Page you manage
+- For public accounts you don't manage (like @louisvuitton), you need their authorization
+- See `get_instagram_id.py` for more details on finding account IDs
 
 This will create a `data/instagram_data.json` file with extracted post information.
 
@@ -90,7 +124,8 @@ The notebook will:
 
 ```
 img_processing/
-├── instagram_data_extractor.py   # Extract data from Instagram API
+├── instagram_data_extractor.py   # Extract data from Instagram API (supports pagination and business accounts)
+├── get_instagram_id.py            # Helper to find Instagram Business Account IDs
 ├── photo_downloader.py            # Download photos from URLs
 ├── image_analysis.ipynb           # Jupyter notebook for image analysis
 ├── requirements.txt               # Python dependencies
@@ -107,9 +142,18 @@ img_processing/
 The `instagram_data_extractor.py` script uses the Instagram Graph API. You need:
 
 - A Facebook Developer account
-- An Instagram Business or Creator account
-- An app configured with Instagram Graph API permissions
+- An Instagram Business or Creator account (for the account you want to extract from)
+- An app configured with Instagram Graph API permissions:
+  - `instagram_basic` - Read posts and media
+  - `pages_show_list` - Access connected Facebook Pages
+  - `instagram_manage_insights` (optional) - For insights data
 - A valid access token
+
+**Limitations:**
+- You can only extract data from Instagram Business/Creator accounts
+- The account must be connected to a Facebook Page you manage
+- Personal Instagram accounts cannot be accessed via Graph API (use Basic Display API instead)
+- Rate limits apply (200 calls per hour per user)
 
 For more information, visit:
 - [Instagram Graph API Documentation](https://developers.facebook.com/docs/instagram-api/)

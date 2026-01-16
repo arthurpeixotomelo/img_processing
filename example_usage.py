@@ -22,7 +22,15 @@ def example_extract_instagram_data():
     print("2. Run the instagram_data_extractor.py script")
     print("\nExample commands:")
     print("  export INSTAGRAM_ACCESS_TOKEN='your_token_here'")
-    print("  python instagram_data_extractor.py")
+    print("  ")
+    print("  # Extract all posts from your account")
+    print("  python instagram_data_extractor.py --all")
+    print("  ")
+    print("  # Extract from a business account (requires account ID)")
+    print("  python instagram_data_extractor.py --user-id 17841405793187218 --all")
+    print("  ")
+    print("  # Find business account IDs you have access to")
+    print("  python get_instagram_id.py")
     
     print("\nProgrammatic usage:")
     print("""
@@ -31,8 +39,14 @@ from instagram_data_extractor import InstagramDataExtractor
 # Initialize with your access token
 extractor = InstagramDataExtractor(access_token='your_token')
 
-# Extract and save data
-extractor.extract_and_save(user_id='me', limit=25, output_file='instagram_data.json')
+# Extract all posts from your account with pagination
+extractor.extract_and_save(user_id='me', fetch_all=True)
+
+# Extract all posts from a business account
+extractor.extract_and_save(user_id='17841405793187218', fetch_all=True)
+
+# Extract limited posts
+extractor.extract_and_save(user_id='me', limit=50, fetch_all=False)
     """)
 
 

@@ -37,13 +37,31 @@ pip install -r requirements.txt
 
 ### 3.1 Extract Instagram Data
 
+#### For Your Own Account:
 ```bash
 # Set your access token
 export INSTAGRAM_ACCESS_TOKEN='YOUR_TOKEN_HERE'
 
-# Run the extractor
-python instagram_data_extractor.py
+# Extract all posts (with pagination)
+python instagram_data_extractor.py --all
+
+# Or extract limited posts
+python instagram_data_extractor.py --limit 50
 ```
+
+#### For a Business Account (e.g., @louisvuitton):
+
+First, find the Business Account ID:
+```bash
+python get_instagram_id.py
+```
+
+Then extract using the account ID:
+```bash
+python instagram_data_extractor.py --user-id 17841405793187218 --all
+```
+
+**Important:** You can only extract from Business/Creator accounts connected to Facebook Pages you manage.
 
 **Output:** `data/instagram_data.json`
 
