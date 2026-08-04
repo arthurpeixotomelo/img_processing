@@ -1,18 +1,6 @@
-# /// script
-# requires-python = ">=3.13"
-# dependencies = [
-#     "marimo>=0.23.3",
-#     "matplotlib>=3.11.1",
-#     "numpy>=2.5.1",
-#     "pandas>=3.0.5",
-#     "plotly>=6.9.0",
-#     "seaborn>=0.13.2",
-# ]
-# ///
-
 import marimo
 
-__generated_with = "0.23.14"
+__generated_with = "0.23.15"
 app = marimo.App()
 
 
@@ -42,19 +30,11 @@ def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
         "color_temperature",
         "mean_luminosity",
         "mean_saturation",
+        "luminosity_category",
+        "saturation_category",
     }
 
-
-    def set_visual_theme() -> None:
-        sns.set_theme(style="whitegrid", context="talk")
-        plt.rcParams["figure.figsize"] = (12, 6)
-
-
-    def _filter_columns(frame: pd.DataFrame, columns: Sequence[str]) -> list[str]:
-        return [column for column in columns if column in frame.columns]
-
-
-    def _semantic_palette(values: Iterable[object]) -> dict[object, str]:
+    def semantic_palette(values: Iterable[object]) -> dict[object, str]:
         color_lookup = {
             "achromatic": "#7f7f7f",
             "balanced": "#8a60b0",
@@ -77,25 +57,32 @@ def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
             "warm": "#ff8c42",
             "yellow": "#f2c744",
         }
-
         unique_values = list(dict.fromkeys(values))
         fallback_colors = sns.color_palette("deep", max(len(unique_values), 1))
         palette: dict[object, str] = {}
-
         for value, fallback_color in zip(unique_values, fallback_colors):
             normalized = str(value).strip().lower()
             palette[value] = color_lookup.get(normalized, fallback_color)
-
         return palette
 
+    def set_visual_theme() -> None:
+        sns.set_theme(style="whitegrid", context="talk")
+        plt.rcParams.update({
+            "font.family": "DejaVu Sans",
+            "font.sans-serif": ["DejaVu Sans"],
+            "text.usetex": False,
+        })
+        plt.rcParams["figure.figsize"] = (12, 6)
 
+    def _filter_columns(frame: pd.DataFrame, columns: Sequence[str]) -> list[str]:
+        return [column for column in columns if column in frame.columns]
 
-    def save_figure(fig: plt.Figure, output_path: Path | None = None, *, dpi: int = 160):
+    def save_figure(
+        fig: plt.Figure, output_path: Path | None = None, *, dpi: int = 160
+    ):
         if output_path is not None:
             fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
         return fig
-
-
 
     def parse_rgb_tuple(value: object) -> tuple[int, int, int] | None:
         if not isinstance(value, str) or not value.strip():
@@ -127,7 +114,13 @@ def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
 
         return r, g, b
 
-    return REQUIRED_COLUMNS, parse_rgb_tuple, save_figure, set_visual_theme
+    return (
+        REQUIRED_COLUMNS,
+        parse_rgb_tuple,
+        save_figure,
+        semantic_palette,
+        set_visual_theme,
+    )
 
 
 @app.cell
@@ -148,7 +141,9 @@ def _(Path, REQUIRED_COLUMNS, parse_rgb_tuple, pd):
         df["mean_saturation"] = pd.to_numeric(df["mean_saturation"], errors="coerce")
 
         if "engagement_total" in df.columns:
-            df["engagement_total"] = pd.to_numeric(df["engagement_total"], errors="coerce")
+            df["engagement_total"] = pd.to_numeric(
+                df["engagement_total"], errors="coerce"
+            )
         else:
             df["engagement_total"] = df["likes"] + df["comments"]
 
@@ -165,45 +160,7 @@ def _(Path, REQUIRED_COLUMNS, parse_rgb_tuple, pd):
 
 
 @app.cell
-def _(Iterable, sns):
-    def _semantic_palette(values: Iterable[object]) -> dict[object, str]:
-        color_lookup = {
-            "achromatic": "#7f7f7f",
-            "balanced": "#8a60b0",
-            "black": "#1f1f1f",
-            "blue": "#1f77b4",
-            "chromatic": "#f28e2b",
-            "cool": "#4c78a8",
-            "cyan": "#17becf",
-            "gray": "#7f7f7f",
-            "grey": "#7f7f7f",
-            "green": "#2ca02c",
-            "magenta": "#e377c2",
-            "mixed": "#8a60b0",
-            "neutral": "#8c8c8c",
-            "orange": "#ff7f0e",
-            "pink": "#ff69b4",
-            "purple": "#9467bd",
-            "red": "#d62728",
-            "white": "#f2f2f2",
-            "warm": "#ff8c42",
-            "yellow": "#f2c744",
-        }
-        unique_values = list(dict.fromkeys(values))
-        fallback_colors = sns.color_palette("deep", max(len(unique_values), 1))
-        palette: dict[object, str] = {}
-        for value, fallback_color in zip(unique_values, fallback_colors):
-            normalized = str(value).strip().lower()
-            palette[value] = color_lookup.get(normalized, fallback_color)
-        return palette
-
-    return
-
-
-@app.cell
-def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
-
-
+def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
     def plot_metric_distributions(
         frame: pd.DataFrame,
         columns: Sequence[str],
@@ -239,7 +196,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
         fig.tight_layout()
         return save_figure(fig, output_path)
 
-
     def plot_rgb_channels(
         frame: pd.DataFrame,
         *,
@@ -252,7 +208,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
             ncols=len(channels),
             output_path=output_path,
         )
-
 
     def plot_group_boxplots(
         frame: pd.DataFrame,
@@ -281,7 +236,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
         fig.suptitle("")
         fig.tight_layout()
         return save_figure(fig, output_path)
-
 
     def plot_scatter_grid(
         frame: pd.DataFrame,
@@ -325,40 +279,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
         fig.tight_layout()
         return save_figure(fig, output_path)
 
-
-
-    def _semantic_palette(values: Iterable[object]) -> dict[object, str]:
-        color_lookup = {
-            "achromatic": "#7f7f7f",
-            "balanced": "#8a60b0",
-            "black": "#1f1f1f",
-            "blue": "#1f77b4",
-            "chromatic": "#f28e2b",
-            "cool": "#4c78a8",
-            "cyan": "#17becf",
-            "gray": "#7f7f7f",
-            "grey": "#7f7f7f",
-            "green": "#2ca02c",
-            "magenta": "#e377c2",
-            "mixed": "#8a60b0",
-            "neutral": "#8c8c8c",
-            "orange": "#ff7f0e",
-            "pink": "#ff69b4",
-            "purple": "#9467bd",
-            "red": "#d62728",
-            "white": "#f2f2f2",
-            "warm": "#ff8c42",
-            "yellow": "#f2c744",
-        }
-        unique_values = list(dict.fromkeys(values))
-        fallback_colors = sns.color_palette("deep", max(len(unique_values), 1))
-        palette: dict[object, str] = {}
-        for value, fallback_color in zip(unique_values, fallback_colors):
-            normalized = str(value).strip().lower()
-            palette[value] = color_lookup.get(normalized, fallback_color)
-        return palette
-
-
     def plot_group_means(
         frame: pd.DataFrame,
         group_col: str,
@@ -371,34 +291,31 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
             raise ValueError("The requested group or target column is not available")
 
         means = (
-            frame.groupby(group_col)[target_col].mean().sort_values(ascending=not sort_desc)
+            frame
+            .groupby(group_col)[target_col]
+            .mean()
+            .sort_values(ascending=not sort_desc)
         )
         fig, ax = plt.subplots(figsize=(12, max(5, 0.4 * len(means))))
-        palette = _semantic_palette(means.index.tolist())
+        palette = semantic_palette(means.index.tolist())
         ax.barh(
-            range(len(means)), means.values, color=[palette[value] for value in means.index]
+            range(len(means)),
+            means.values,
+            color=[palette[value] for value in means.index],
         )
         ax.set_yticks(range(len(means)))
         ax.set_yticklabels(means.index)
         ax.set_xlabel(f"Average {target_col}")
         ax.set_title(f"Average {target_col} by {group_col}")
         ax.grid(axis="x", alpha=0.3)
-        fig.tight_layout()
+        fig.subplots_adjust(left=0.24, right=0.98, top=0.90, bottom=0.16)
         return save_figure(fig, output_path)
-
 
     ACHROMATIC_HUES = {"Black", "White", "Gray"}
 
-
     def chromaticity_category(color_category: object) -> str:
-        """Collapse the detailed color hue into the achromatic/chromatic split.
-
-        Mirrors the classification used in `FINAL_PAPER_DRAFT.md`: Black/White/Gray
-        behave as neutral, weak-hue images (achromatic); every other hue is a
-        recognizable color (chromatic).
-        """
+        """Collapse hue-like color categories into achromatic/chromatic."""
         return "achromatic" if color_category in ACHROMATIC_HUES else "chromatic"
-
 
     def _tercile_label(value: float, low: float, high: float) -> str:
         if pd.isna(value):
@@ -409,35 +326,30 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
             return "high"
         return "neutral"
 
-
     def add_visual_cohort_columns(frame: pd.DataFrame) -> pd.DataFrame:
-        """Attach the cohort columns used by the engagement Sankey diagram.
-
-        Adds:
-        - `chromaticity`: achromatic / chromatic (from `color_category`).
-        - `saturation_band`: low / neutral / high (data terciles of `mean_saturation`).
-        - `luminosity_band`: low / neutral / high (data terciles of `mean_luminosity`).
-        """
-        if "color_category" not in frame.columns:
-            raise ValueError("color_category column is required for cohort columns")
+        """Attach the columns used by the engagement Sankey diagram."""
+        required = {
+            "type",
+            "username",
+            "color_category",
+            "color_temperature",
+            "saturation_category",
+            "luminosity_category",
+        }
+        missing = required - set(frame.columns)
+        if missing:
+            raise ValueError(f"Missing Sankey columns: {sorted(missing)}")
 
         enriched = frame.copy()
-        enriched["chromaticity"] = enriched["color_category"].apply(chromaticity_category)
-
-        for source, target in (
-            ("mean_saturation", "saturation_band"),
-            ("mean_luminosity", "luminosity_band"),
-        ):
-            if source in enriched.columns:
-                quantiles = enriched[source].quantile([1 / 3, 2 / 3])
-                enriched[target] = enriched[source].apply(
-                    _tercile_label, args=(quantiles.iloc[0], quantiles.iloc[1])
-                )
-            else:
-                enriched[target] = "neutral"
-
+        enriched["chromaticity"] = enriched["color_category"].apply(
+            chromaticity_category
+        )
         return enriched
 
+    def _spread_positions(count: int, start: float, stop: float) -> list[float]:
+        if count <= 1:
+            return [(start + stop) / 2]
+        return np.linspace(start, stop, count).tolist()
 
     def build_engagement_sankey(
         frame: pd.DataFrame,
@@ -445,76 +357,214 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
         engagement_col: str = "engagement_total",
         output_path: Path | None = None,
     ) -> go.Figure:
-        """Build a left-to-right Sankey of average engagement across cohorts.
-
-        Stages, in order:
-        1. brand type (fast / luxury)
-        2. brand (username)
-        3. chromaticity (achromatic / chromatic)
-        4. color temperature (warm / cool)
-        5. saturation band (low / neutral / high)
-        6. luminosity band (low / neutral / high)
-
-        Link width is the average engagement_total between two adjacent stages.
-        """
+        """Build a Sankey with color -> chromaticity -> temperature and parallel bands."""
         enriched = add_visual_cohort_columns(frame)
         required = {
             "type",
             "username",
             "chromaticity",
             "color_temperature",
-            "saturation_band",
-            "luminosity_band",
+            "saturation_category",
+            "luminosity_category",
             engagement_col,
         }
         missing = required - set(enriched.columns)
         if missing:
             raise ValueError(f"Missing Sankey columns: {sorted(missing)}")
 
-        stages = [
-            ("type", "Brand type"),
-            ("username", "Brand"),
-            ("chromaticity", "Chromaticity"),
-            ("color_temperature", "Temperature"),
-            ("saturation_band", "Saturation"),
-            ("luminosity_band", "Luminosity"),
-        ]
+        def order_values(column: str, values: list[str]) -> list[str]:
+            if column == "chromaticity":
+                preferred = ["achromatic", "chromatic"]
+            elif column in {"saturation_category", "luminosity_category"}:
+                preferred = ["low", "neutral", "high"]
+            elif column == "color_temperature":
+                preferred = ["warm", "cool"]
+            else:
+                preferred = []
+
+            ordered = [value for value in preferred if value in values]
+            ordered.extend([value for value in values if value not in preferred])
+            return ordered
 
         node_labels: list[str] = []
-        node_keys: list[str] = []
-        stage_to_index: dict[int, dict[str, int]] = {}
-        for stage_index, (column, _label) in enumerate(stages):
-            for value in enriched[column].dropna().unique():
-                key = f"{stage_index}::{value}"
-                if key in node_keys:
-                    continue
-                stage_to_index.setdefault(stage_index, {})[value] = len(node_keys)
-                node_keys.append(key)
-                node_labels.append(str(value))
+        node_x: list[float] = []
+        node_y: list[float] = []
+        stage_to_index: dict[str, int] = {}
+
+        def add_node(key: str, label: str, x: float, y: float) -> int:
+            if key in stage_to_index:
+                return stage_to_index[key]
+            index = len(node_labels)
+            stage_to_index[key] = index
+            node_labels.append(label)
+            node_x.append(x)
+            node_y.append(y)
+            return index
+
+        type_values = order_values(
+            "type",
+            [str(value) for value in enriched["type"].dropna().unique().tolist()],
+        )
+        brand_values = order_values(
+            "username",
+            [str(value) for value in enriched["username"].dropna().unique().tolist()],
+        )
+
+        for value, y_position in zip(
+            type_values, _spread_positions(len(type_values), 0.35, 0.65)
+        ):
+            add_node(f"type::{value}", value, 0.02, y_position)
+
+        for value, y_position in zip(
+            brand_values, _spread_positions(len(brand_values), 0.10, 0.90)
+        ):
+            add_node(f"username::{value}", value, 0.22, y_position)
+
+        branch_values = order_values("branch", ["color", "saturation", "luminosity"])
+        for value, y_position in zip(
+            branch_values, _spread_positions(len(branch_values), 0.18, 0.82)
+        ):
+            add_node(f"branch::{value}", value, 0.46, y_position)
+
+        color_nodes = order_values(
+            "chromaticity",
+            [
+                str(value)
+                for value in enriched["chromaticity"].dropna().unique().tolist()
+            ],
+        )
+        saturation_nodes = order_values(
+            "saturation_category",
+            [
+                str(value)
+                for value in enriched["saturation_category"].dropna().unique().tolist()
+            ],
+        )
+        luminosity_nodes = order_values(
+            "luminosity_category",
+            [
+                str(value)
+                for value in enriched["luminosity_category"].dropna().unique().tolist()
+            ],
+        )
+        temperature_nodes = order_values(
+            "color_temperature",
+            [
+                str(value)
+                for value in enriched["color_temperature"].dropna().unique().tolist()
+            ],
+        )
+
+        for value, y_position in zip(
+            color_nodes, _spread_positions(len(color_nodes), 0.28, 0.72)
+        ):
+            add_node(f"chromaticity::{value}", value, 0.70, y_position)
+
+        for value, y_position in zip(
+            saturation_nodes, _spread_positions(len(saturation_nodes), 0.12, 0.88)
+        ):
+            add_node(f"saturation_category::{value}", value, 0.70, y_position)
+
+        for value, y_position in zip(
+            luminosity_nodes, _spread_positions(len(luminosity_nodes), 0.12, 0.88)
+        ):
+            add_node(f"luminosity_category::{value}", value, 0.70, y_position)
+
+        for value, y_position in zip(
+            temperature_nodes, _spread_positions(len(temperature_nodes), 0.28, 0.72)
+        ):
+            add_node(f"color_temperature::{value}", value, 0.94, y_position)
 
         source_nodes: list[int] = []
         target_nodes: list[int] = []
         link_values: list[float] = []
 
-        for stage_index in range(len(stages) - 1):
-            left_column = stages[stage_index][0]
-            right_column = stages[stage_index + 1][0]
+        def add_link(source_key: str, target_key: str, value: float) -> None:
+            source_nodes.append(stage_to_index[source_key])
+            target_nodes.append(stage_to_index[target_key])
+            link_values.append(float(max(value, 0.0)))
+
+        type_brand = (
+            enriched
+            .groupby(["type", "username"], dropna=False)[engagement_col]
+            .mean()
+            .reset_index()
+        )
+        for _, row in type_brand.iterrows():
+            if pd.isna(row["type"]) or pd.isna(row["username"]):
+                continue
+            add_link(
+                f"type::{row['type']}",
+                f"username::{row['username']}",
+                row[engagement_col],
+            )
+
+        branch_factor = 3.0
+        brand_means = (
+            enriched
+            .groupby("username", dropna=False)[engagement_col]
+            .mean()
+            .reset_index()
+        )
+        for _, row in brand_means.iterrows():
+            if pd.isna(row["username"]):
+                continue
+            brand_key = f"username::{row['username']}"
+            for branch in ("color", "saturation", "luminosity"):
+                add_link(
+                    brand_key, f"branch::{branch}", row[engagement_col] / branch_factor
+                )
+
+        chromaticity_means = (
+            enriched
+            .groupby("chromaticity", dropna=False)[engagement_col]
+            .mean()
+            .reset_index()
+        )
+        for _, row in chromaticity_means.iterrows():
+            if pd.isna(row["chromaticity"]):
+                continue
+            add_link(
+                "branch::color",
+                f"chromaticity::{row['chromaticity']}",
+                row[engagement_col],
+            )
+
+        temperature_means = (
+            enriched
+            .groupby(["chromaticity", "color_temperature"], dropna=False)[
+                engagement_col
+            ]
+            .mean()
+            .reset_index()
+        )
+        for _, row in temperature_means.iterrows():
+            if pd.isna(row["chromaticity"]) or pd.isna(row["color_temperature"]):
+                continue
+            add_link(
+                f"chromaticity::{row['chromaticity']}",
+                f"color_temperature::{row['color_temperature']}",
+                row[engagement_col],
+            )
+
+        for branch, category_column in (
+            ("saturation", "saturation_category"),
+            ("luminosity", "luminosity_category"),
+        ):
             grouped = (
                 enriched
-                .groupby([left_column, right_column], dropna=False)[engagement_col]
+                .groupby(category_column, dropna=False)[engagement_col]
                 .mean()
                 .reset_index()
             )
             for _, row in grouped.iterrows():
-                left_value = row[left_column]
-                right_value = row[right_column]
-                if pd.isna(left_value) or pd.isna(right_value):
+                if pd.isna(row[category_column]):
                     continue
-                source = stage_to_index[stage_index][left_value]
-                target = stage_to_index[stage_index + 1][right_value]
-                source_nodes.append(source)
-                target_nodes.append(target)
-                link_values.append(float(max(row[engagement_col], 0.0)))
+                add_link(
+                    f"branch::{branch}",
+                    f"{category_column}::{row[category_column]}",
+                    row[engagement_col],
+                )
 
         figure = go.Figure(
             data=[
@@ -522,6 +572,8 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
                     arrangement="snap",
                     node={
                         "label": node_labels,
+                        "x": node_x,
+                        "y": node_y,
                         "pad": 18,
                         "thickness": 16,
                         "line": {"color": "#2a2a2a", "width": 0.5},
@@ -536,7 +588,7 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
             ]
         )
         figure.update_layout(
-            title="Average engagement flow: brand type → brand → chromaticity → temperature → saturation → luminosity",
+            title="Average engagement flow: brand type → brand → color → chromaticity → temperature",
             font_size=12,
             height=620,
             margin={"l": 16, "r": 16, "t": 60, "b": 16},
@@ -545,7 +597,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
         if output_path is not None:
             figure.write_html(str(output_path))
         return figure
-
 
     def build_visual_report(
         frame: pd.DataFrame,
@@ -604,7 +655,6 @@ def _(Iterable, Path, Sequence, go, np, pd, plt, save_figure, sns):
             else None,
         }
         return figures
-
 
     def generate_visualizations(df: pd.DataFrame, output_dir: Path, prefix: str):
         output_dir.mkdir(parents=True, exist_ok=True)

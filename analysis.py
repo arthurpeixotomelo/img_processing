@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.14"
+__generated_with = "0.23.15"
 app = marimo.App()
 
 
@@ -11,11 +11,10 @@ def _():
 
     import cv2
     import numpy as np
-    import pandas as pd
     import polars as pl
     from sklearn.cluster import KMeans
 
-    return Counter, KMeans, Path, cv2, np, pd, pl
+    return Counter, KMeans, Path, cv2, np, pl
 
 
 @app.cell
@@ -24,13 +23,14 @@ def _(Counter, KMeans, cv2, np):
         """Decode image bytes into an OpenCV BGR image."""
         if img_bytes is None:
             raise ValueError("img_bytes is None")
-        buffer = img_bytes if isinstance(img_bytes, (bytes, bytearray)) else bytes(img_bytes)
+        buffer = (
+            img_bytes if isinstance(img_bytes, (bytes, bytearray)) else bytes(img_bytes)
+        )
         array = np.frombuffer(buffer, dtype=np.uint8)
         image = cv2.imdecode(array, cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError("Failed to decode image bytes")
         return image
-
 
     def calculate_luminosity(image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -42,7 +42,6 @@ def _(Counter, KMeans, cv2, np):
             "max_luminosity": int(np.max(gray)),
         }
 
-
     def calculate_saturation(image):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         saturation = hsv[:, :, 1]
@@ -53,7 +52,6 @@ def _(Counter, KMeans, cv2, np):
             "min_saturation": int(np.min(saturation)),
             "max_saturation": int(np.max(saturation)),
         }
-
 
     def get_predominant_colors(image, n_colors=5, max_pixels=20_000):
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -77,7 +75,10 @@ def _(Counter, KMeans, cv2, np):
         color_info = []
         for index in range(n_colors):
             percentage = (label_counts.get(index, 0) / total_pixels) * 100
-            color_info.append({"color_rgb": tuple(colors[index]), "percentage": float(percentage)})
+            color_info.append({
+                "color_rgb": tuple(colors[index]),
+                "percentage": float(percentage),
+            })
 
         color_info.sort(key=lambda value: value["percentage"], reverse=True)
         return {
@@ -85,7 +86,6 @@ def _(Counter, KMeans, cv2, np):
             "predominant_color_percentage": color_info[0]["percentage"],
             "all_colors": color_info,
         }
-
 
     def get_color_category(rgb_color):
         r, g, b = rgb_color
@@ -130,13 +130,35 @@ def _(Counter, KMeans, cv2, np):
             return "Magenta"
         return "Pink"
 
-
     def get_color_temperature(rgb_color):
         r, g, b = rgb_color
         warm_score = (r * 1.0 + g * 0.5) / 2
         cool_score = (b * 1.0 + g * 0.3) / 2
         return "warm" if warm_score > cool_score else "cool"
 
+    # Luminosity and saturation are 0-255 byte ranges (grayscale / HSV S channel).
+    # Bands split at the 1st and 3rd quartiles of that range so labels are stable,
+    # interpretable for non-technical readers, and independent of dataset skew.
+    _LUMINOSITY_LOW_THRESHOLD = 85
+    _LUMINOSITY_HIGH_THRESHOLD = 170
+    _SATURATION_LOW_THRESHOLD = 85
+    _SATURATION_HIGH_THRESHOLD = 170
+
+    def get_luminosity_category(mean_luminosity):
+        """Categorize mean luminosity into low/neutral/high bands (0-255 grayscale)."""
+        if mean_luminosity < _LUMINOSITY_LOW_THRESHOLD:
+            return "low"
+        if mean_luminosity > _LUMINOSITY_HIGH_THRESHOLD:
+            return "high"
+        return "neutral"
+
+    def get_saturation_category(mean_saturation):
+        """Categorize mean saturation into low/neutral/high bands (0-255 HSV S channel)."""
+        if mean_saturation < _SATURATION_LOW_THRESHOLD:
+            return "low"
+        if mean_saturation > _SATURATION_HIGH_THRESHOLD:
+            return "high"
+        return "neutral"
 
     def analyze_post_row(row, n_colors=5, max_pixels=20_000):
         try:
@@ -144,12 +166,18 @@ def _(Counter, KMeans, cv2, np):
             height, width, channels = image_bgr.shape
             luminosity = calculate_luminosity(image_bgr)
             saturation = calculate_saturation(image_bgr)
-            colors = get_predominant_colors(image_bgr, n_colors=n_colors, max_pixels=max_pixels)
+            colors = get_predominant_colors(
+                image_bgr, n_colors=n_colors, max_pixels=max_pixels
+            )
             predominant_rgb = colors["predominant_color"]
 
             post_id = row.get("post_id")
             username = row.get("username")
-            filename = str(post_id) if post_id is not None else str(row.get("post_img_url", "unknown"))
+            filename = (
+                str(post_id)
+                if post_id is not None
+                else str(row.get("post_img_url", "unknown"))
+            )
             if username:
                 filename = f"{username}_{filename}"
 
@@ -171,27 +199,38 @@ def _(Counter, KMeans, cv2, np):
                 **colors,
                 "color_category": get_color_category(predominant_rgb),
                 "color_temperature": get_color_temperature(predominant_rgb),
+                "luminosity_category": get_luminosity_category(
+                    luminosity["mean_luminosity"]
+                ),
+                "saturation_category": get_saturation_category(
+                    saturation["mean_saturation"]
+                ),
             }
         except Exception as exc:
             print(f"Error analyzing post_id={row.get('post_id')}: {exc}")
             return None
-
 
     print("Helper functions defined successfully!")
     return (analyze_post_row,)
 
 
 @app.cell
-def _(Path, analyze_post_row, pd, pl):
-    def load_structured_parquets(parquet_pattern="structured_scrapper_data_*.parquet"):
+def _(Path, analyze_post_row, pl):
+    def load_structured_parquets(parquet_pattern="structured_scrapper_data.parquet"):
         parquet_files = sorted(Path(".").glob(parquet_pattern))
         if not parquet_files:
-            raise FileNotFoundError(f"No parquet files found for pattern: {parquet_pattern}")
+            raise FileNotFoundError(
+                f"No parquet files found for pattern: {parquet_pattern}"
+            )
 
         frames = []
         for path in parquet_files:
             frame = pl.read_parquet(path)
-            brand_type = "fast" if "fast" in path.stem else ("luxury" if "luxury" in path.stem else None)
+            brand_type = (
+                "fast"
+                if "fast" in path.stem
+                else ("luxury" if "luxury" in path.stem else None)
+            )
             if brand_type is not None and "type" not in frame.columns:
                 frame = frame.with_columns(pl.lit(brand_type).alias("type"))
             frames.append(frame)
@@ -203,7 +242,6 @@ def _(Path, analyze_post_row, pd, pl):
 
         return combined, parquet_files
 
-
     def normalize_scrape_frame(frame: pl.DataFrame) -> pl.DataFrame:
         cols = set(frame.columns)
 
@@ -211,19 +249,36 @@ def _(Path, analyze_post_row, pd, pl):
             for candidate in candidates:
                 if candidate in cols:
                     return candidate
-            raise ValueError(f"Missing '{name}'. Tried {candidates}. Found: {sorted(cols)}")
+            raise ValueError(
+                f"Missing '{name}'. Tried {candidates}. Found: {sorted(cols)}"
+            )
 
         post_id_col = pick("post_id", ["post_id", "id"])
         username_col = pick("username", ["username", "ownerUsername"])
         likes_col = pick("likes", ["post_likes", "likesCount", "post_likesCount"])
-        comments_col = pick("comments", ["post_comments", "commentsCount", "post_commentsCount"])
+        comments_col = pick(
+            "comments", ["post_comments", "commentsCount", "post_commentsCount"]
+        )
         img_col = pick("post_img_data", ["post_img_data"])
         img_url_col = pick("post_img_url", ["post_img_url", "displayUrl"])
         type_col = "type" if "type" in cols else None
-        post_url_col = "post_url" if "post_url" in cols else ("url" if "url" in cols else None)
-        created_col = "post_created_at" if "post_created_at" in cols else ("timestamp" if "timestamp" in cols else None)
+        post_url_col = (
+            "post_url" if "post_url" in cols else ("url" if "url" in cols else None)
+        )
+        created_col = (
+            "post_created_at"
+            if "post_created_at" in cols
+            else ("timestamp" if "timestamp" in cols else None)
+        )
 
-        select_cols = [post_id_col, username_col, likes_col, comments_col, img_col, img_url_col]
+        select_cols = [
+            post_id_col,
+            username_col,
+            likes_col,
+            comments_col,
+            img_col,
+            img_url_col,
+        ]
         if type_col:
             select_cols.append(type_col)
         if post_url_col:
@@ -247,7 +302,8 @@ def _(Path, analyze_post_row, pd, pl):
             rename_map[created_col] = "post_created_at"
 
         normalized = (
-            frame.select(select_cols)
+            frame
+            .select(select_cols)
             .rename(rename_map)
             .with_columns([
                 pl.col("likes").cast(pl.Int64),
@@ -257,7 +313,6 @@ def _(Path, analyze_post_row, pd, pl):
         )
 
         return normalized
-
 
     def analyze_dataset(frame: pl.DataFrame, n_colors=5, max_pixels=20_000):
         results = []
@@ -276,8 +331,7 @@ def _(Path, analyze_post_row, pd, pl):
 
         print(f"Successfully analyzed {len(results)} images.")
         print(f"Failed: {failed}")
-        return pd.DataFrame(results)
-
+        return pl.DataFrame(results)
 
     print("Dataset helpers defined successfully!")
     return analyze_dataset, load_structured_parquets, normalize_scrape_frame
