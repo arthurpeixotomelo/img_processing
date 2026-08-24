@@ -1,27 +1,28 @@
 import marimo
 
-__generated_with = "0.23.15"
+__generated_with = "0.23.16"
 app = marimo.App()
 
 
 @app.cell
 def _():
-    import re
     import ast
-    from pathlib import Path
+    import re
     from collections.abc import Iterable, Sequence
+    from dataclasses import dataclass
+    from pathlib import Path
 
+    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
     import plotly.graph_objects as go
+    import seaborn as sns
 
-    return Iterable, Path, Sequence, ast, go, np, pd, plt, re, sns
+    return Iterable, Path, Sequence, ast, dataclass, go, np, pd, plt, re, sns
 
 
 @app.cell
-def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
+def _(Iterable, Path, Sequence, ast, np, pd, plt, re, sns):
     REQUIRED_COLUMNS = {
         "likes",
         "comments",
@@ -74,8 +75,19 @@ def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
         })
         plt.rcParams["figure.figsize"] = (12, 6)
 
-    def _filter_columns(frame: pd.DataFrame, columns: Sequence[str]) -> list[str]:
+    def filter_columns(frame: pd.DataFrame, columns: Sequence[str]) -> list[str]:
         return [column for column in columns if column in frame.columns]
+
+    def require_columns(frame: pd.DataFrame, columns: Sequence[str]) -> None:
+        """Raise immediately if any required column is missing from the frame."""
+        missing = [column for column in columns if column not in frame.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
+
+    def hide_extra_axes(axes: np.ndarray, used_count: int) -> None:
+        """Hide unused subplot axes created by a fixed-shape grid."""
+        for axis in axes[used_count:]:
+            axis.set_visible(False)
 
     def save_figure(
         fig: plt.Figure, output_path: Path | None = None, *, dpi: int = 160
@@ -116,7 +128,10 @@ def _(Iterable, Path, Sequence, ast, pd, plt, re, sns):
 
     return (
         REQUIRED_COLUMNS,
+        filter_columns,
+        hide_extra_axes,
         parse_rgb_tuple,
+        require_columns,
         save_figure,
         semantic_palette,
         set_visual_theme,
@@ -160,7 +175,21 @@ def _(Path, REQUIRED_COLUMNS, parse_rgb_tuple, pd):
 
 
 @app.cell
-def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
+def _(
+    Path,
+    Sequence,
+    dataclass,
+    filter_columns,
+    go,
+    hide_extra_axes,
+    np,
+    pd,
+    plt,
+    require_columns,
+    save_figure,
+    semantic_palette,
+    sns,
+):
     def plot_metric_distributions(
         frame: pd.DataFrame,
         columns: Sequence[str],
@@ -169,7 +198,7 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         ncols: int = 3,
         output_path: Path | None = None,
     ):
-        available = _filter_columns(frame, columns)
+        available = filter_columns(frame, columns)
         if not available:
             raise ValueError("No matching columns were found for plotting")
 
@@ -190,9 +219,7 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
             axes[index].set_xlabel(column)
             axes[index].set_ylabel("Count")
 
-        for axis in axes[len(available) :]:
-            axis.set_visible(False)
-
+        hide_extra_axes(axes, len(available))
         fig.tight_layout()
         return save_figure(fig, output_path)
 
@@ -216,9 +243,10 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         *,
         output_path: Path | None = None,
     ):
-        available_targets = _filter_columns(frame, target_cols)
-        if group_col not in frame.columns or not available_targets:
-            raise ValueError("The requested group or target columns are not available")
+        available_targets = filter_columns(frame, target_cols)
+        require_columns(frame, [group_col])
+        if not available_targets:
+            raise ValueError("The requested target columns are not available")
 
         fig, axes = plt.subplots(
             1, len(available_targets), figsize=(8 * len(available_targets), 6)
@@ -246,8 +274,9 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         trendline: bool = True,
         output_path: Path | None = None,
     ):
-        available_x = _filter_columns(frame, x_cols)
-        if y_col not in frame.columns or not available_x:
+        available_x = filter_columns(frame, x_cols)
+        require_columns(frame, [y_col])
+        if not available_x:
             raise ValueError("The requested scatter plot columns are not available")
 
         nrows = int(np.ceil(len(available_x) / ncols))
@@ -273,9 +302,7 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
                     alpha=0.8,
                 )
 
-        for axis in axes[len(available_x) :]:
-            axis.set_visible(False)
-
+        hide_extra_axes(axes, len(available_x))
         fig.tight_layout()
         return save_figure(fig, output_path)
 
@@ -287,8 +314,7 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         sort_desc: bool = True,
         output_path: Path | None = None,
     ):
-        if group_col not in frame.columns or target_col not in frame.columns:
-            raise ValueError("The requested group or target column is not available")
+        require_columns(frame, [group_col, target_col])
 
         means = (
             frame
@@ -346,10 +372,178 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         )
         return enriched
 
-    def _spread_positions(count: int, start: float, stop: float) -> list[float]:
+    # --- Sankey building ----------------------------------------------------------
+    # The Sankey has four left-to-right stages:
+    #   type -> username -> branch(color|luminosity|saturation) -> category nodes
+    # Each branch owns its own vertical lane so the saturation/luminosity
+    # low/neutral/high nodes no longer overlap.
+
+    # Preferred display order per stage; entries not listed keep their natural order.
+    STAGE_ORDER: dict[str, list[str]] = {
+        "chromaticity": ["achromatic", "chromatic"],
+        "branch": ["color", "luminosity", "saturation"],
+        "saturation_category": ["high", "neutral", "low"],
+        "luminosity_category": ["high", "neutral", "low"],
+        "color_temperature": ["warm", "cool"],
+    }
+
+    # Stages whose values share vocabulary (low/neutral/high) and need a prefix
+    # in the rendered label so they are visually unambiguous.
+    STAGE_LABEL_PREFIX: dict[str, str] = {
+        "saturation_category": "Sat",
+        "luminosity_category": "Lum",
+    }
+
+    # Vertical lanes allocated to each post-branch chain. Keep them disjoint so
+    # nodes from different branches never share y coordinates.
+    LANE_BANDS: dict[str, tuple[float, float]] = {
+        "color": (0.66, 0.94),
+        "luminosity": (0.36, 0.62),
+        "saturation": (0.06, 0.32),
+    }
+
+    @dataclass(frozen=True)
+    class StageSpec:
+        """Placement metadata for a column-derived Sankey stage."""
+
+        stage: str
+        x: float
+        y_band: tuple[float, float]
+
+        @property
+        def preferred_order(self) -> list[str]:
+            return STAGE_ORDER.get(self.stage, [])
+
+    def normalize_unique(values: pd.Series) -> list[str]:
+        """Drop NA and return deterministic string values in first-seen order."""
+        return [str(value) for value in values.dropna().unique().tolist()]
+
+    def ordered_values(stage: str, values: list[str]) -> list[str]:
+        preferred = STAGE_ORDER.get(stage, [])
+        ordered = [value for value in preferred if value in values]
+        ordered.extend([value for value in values if value not in preferred])
+        return ordered
+
+    def stage_label(stage: str, value: str) -> str:
+        prefix = STAGE_LABEL_PREFIX.get(stage)
+        return f"{prefix} {value}" if prefix else value
+
+    def node_key(stage: str, value: str) -> str:
+        return f"{stage}::{value}"
+
+    def spread_positions(count: int, start: float, stop: float) -> list[float]:
         if count <= 1:
             return [(start + stop) / 2]
         return np.linspace(start, stop, count).tolist()
+
+    class NodeRegistry:
+        """Registers Sankey nodes and accumulates links against stage-qualified keys."""
+
+        def __init__(self) -> None:
+            self.labels: list[str] = []
+            self.x: list[float] = []
+            self.y: list[float] = []
+            self._index: dict[str, int] = {}
+            self._sources: list[int] = []
+            self._targets: list[int] = []
+            self._values: list[float] = []
+
+        def add_stage(self, spec: StageSpec, values: list[str]) -> None:
+            ordered = ordered_values(spec.stage, values)
+            band_start, band_stop = spec.y_band
+            for value, y_pos in zip(
+                ordered, spread_positions(len(ordered), band_start, band_stop)
+            ):
+                self._register(
+                    node_key(spec.stage, value),
+                    stage_label(spec.stage, value),
+                    spec.x,
+                    y_pos,
+                )
+
+        def add_fixed(self, spec: StageSpec, values: list[str]) -> None:
+            """Register nodes for a stage with predefined values (order respected)."""
+            band_start, band_stop = spec.y_band
+            for value, y_pos in zip(
+                values, spread_positions(len(values), band_start, band_stop)
+            ):
+                self._register(node_key(spec.stage, value), value, spec.x, y_pos)
+
+        def _register(self, key: str, label: str, x: float, y: float) -> int:
+            if key in self._index:
+                return self._index[key]
+            index = len(self.labels)
+            self._index[key] = index
+            self.labels.append(label)
+            self.x.append(x)
+            self.y.append(y)
+            return index
+
+        def link(self, source_key: str, target_key: str, value: float) -> None:
+            self._sources.append(self._index[source_key])
+            self._targets.append(self._index[target_key])
+            self._values.append(float(max(value, 0.0)))
+
+        def has(self, key: str) -> bool:
+            return key in self._index
+
+        def validate_links(self) -> None:
+            """Ensure every link endpoint resolves to a registered node."""
+            missing = {key for key in self._index if not self.has(key)}
+            if missing:
+                raise ValueError(
+                    f"Sankey links reference unknown nodes: {sorted(missing)}"
+                )
+
+        @property
+        def sources(self) -> list[int]:
+            return self._sources
+
+        @property
+        def targets(self) -> list[int]:
+            return self._targets
+
+        @property
+        def values(self) -> list[float]:
+            return self._values
+
+    def build_edge_frame(
+        frame: pd.DataFrame,
+        engagement_col: str,
+        *,
+        by: Sequence[str],
+        source_key: str | None = None,
+        target_prefix: str | None = None,
+    ) -> pd.DataFrame:
+        """Aggregate engagement by `by` columns using a sum and normalize to edges.
+
+        When `source_key` is provided, every aggregating row becomes a single edge
+        from that fixed node to a target keyed by `target_prefix::value`.
+        Otherwise the first column in `by` is the source and the rest form the
+        target key (joined with '::').
+        """
+        grouped = (
+            frame.groupby(list(by), dropna=False)[engagement_col].sum().reset_index()
+        )
+        records: list[dict[str, object]] = []
+        for _, row in grouped.iterrows():
+            if any(pd.isna(row[col]) for col in by):
+                continue
+            if source_key is not None:
+                target_value = str(row[by[0]])
+                target_key = node_key(target_prefix or by[0], target_value)
+                source = source_key
+            else:
+                source_value = str(row[by[0]])
+                target_values = [str(row[col]) for col in by[1:]]
+                source = node_key(by[0], source_value)
+                target_key = node_key("::".join(by[1:]), "::".join(target_values))
+            records.append({
+                "source": source,
+                "target": target_key,
+                "value": row[engagement_col],
+            })
+        return pd.DataFrame(records, columns=["source", "target", "value"])
 
     def build_engagement_sankey(
         frame: pd.DataFrame,
@@ -357,238 +551,180 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         engagement_col: str = "engagement_total",
         output_path: Path | None = None,
     ) -> go.Figure:
-        """Build a Sankey with color -> chromaticity -> temperature and parallel bands."""
+        """Build a lane-separated Sankey of summed engagement flows.
+
+        Stages: type -> username -> branch(color|luminosity|saturation) -> category.
+        Each post-branch chain owns its own vertical lane so saturation and
+        luminosity low/neutral/high nodes never overlap.
+        """
         enriched = add_visual_cohort_columns(frame)
-        required = {
-            "type",
-            "username",
-            "chromaticity",
-            "color_temperature",
-            "saturation_category",
-            "luminosity_category",
+        require_columns(
+            enriched,
+            [
+                "type",
+                "username",
+                "chromaticity",
+                "color_temperature",
+                "saturation_category",
+                "luminosity_category",
+                engagement_col,
+            ],
+        )
+
+        registry = NodeRegistry()
+
+        # Stage 1: type (far left)
+        registry.add_fixed(
+            StageSpec("type", 0.02, (0.35, 0.65)),
+            ordered_values("type", normalize_unique(enriched["type"])),
+        )
+
+        # Stage 2: username
+        registry.add_fixed(
+            StageSpec("username", 0.22, (0.08, 0.92)),
+            ordered_values("username", normalize_unique(enriched["username"])),
+        )
+
+        # Stage 3: branch hub nodes (color/luminosity/saturation)
+        # Reverse band so color (top lane) gets highest y, saturation (bottom) gets lowest
+        registry.add_fixed(
+            StageSpec("branch", 0.46, (0.82, 0.18)),
+            ordered_values("branch", ["color", "luminosity", "saturation"]),
+        )
+
+        # Stage 4: category nodes, each branch in its own vertical lane.
+        color_stage = StageSpec("chromaticity", 0.70, LANE_BANDS["color"])
+        saturation_stage = StageSpec(
+            "saturation_category", 0.82, LANE_BANDS["saturation"]
+        )
+        luminosity_stage = StageSpec(
+            "luminosity_category", 0.82, LANE_BANDS["luminosity"]
+        )
+        temperature_stage = StageSpec("color_temperature", 0.94, LANE_BANDS["color"])
+
+        registry.add_stage(color_stage, normalize_unique(enriched["chromaticity"]))
+        registry.add_stage(
+            saturation_stage, normalize_unique(enriched["saturation_category"])
+        )
+        registry.add_stage(
+            luminosity_stage, normalize_unique(enriched["luminosity_category"])
+        )
+        registry.add_stage(
+            temperature_stage, normalize_unique(enriched["color_temperature"])
+        )
+
+        # --- Edges (summed engagement) -----------------------------------------
+        # Each chain segment is aggregated with `.sum()` and normalized to the
+        # (source, target, value) schema, then concatenated once at the end.
+
+        # type -> username
+        type_to_brand = build_edge_frame(
+            enriched,
             engagement_col,
-        }
-        missing = required - set(enriched.columns)
-        if missing:
-            raise ValueError(f"Missing Sankey columns: {sorted(missing)}")
-
-        def order_values(column: str, values: list[str]) -> list[str]:
-            if column == "chromaticity":
-                preferred = ["achromatic", "chromatic"]
-            elif column in {"saturation_category", "luminosity_category"}:
-                preferred = ["low", "neutral", "high"]
-            elif column == "color_temperature":
-                preferred = ["warm", "cool"]
-            else:
-                preferred = []
-
-            ordered = [value for value in preferred if value in values]
-            ordered.extend([value for value in values if value not in preferred])
-            return ordered
-
-        node_labels: list[str] = []
-        node_x: list[float] = []
-        node_y: list[float] = []
-        stage_to_index: dict[str, int] = {}
-
-        def add_node(key: str, label: str, x: float, y: float) -> int:
-            if key in stage_to_index:
-                return stage_to_index[key]
-            index = len(node_labels)
-            stage_to_index[key] = index
-            node_labels.append(label)
-            node_x.append(x)
-            node_y.append(y)
-            return index
-
-        type_values = order_values(
-            "type",
-            [str(value) for value in enriched["type"].dropna().unique().tolist()],
-        )
-        brand_values = order_values(
-            "username",
-            [str(value) for value in enriched["username"].dropna().unique().tolist()],
+            by=["type", "username"],
         )
 
-        for value, y_position in zip(
-            type_values, _spread_positions(len(type_values), 0.35, 0.65)
-        ):
-            add_node(f"type::{value}", value, 0.02, y_position)
-
-        for value, y_position in zip(
-            brand_values, _spread_positions(len(brand_values), 0.10, 0.90)
-        ):
-            add_node(f"username::{value}", value, 0.22, y_position)
-
-        branch_values = order_values("branch", ["color", "saturation", "luminosity"])
-        for value, y_position in zip(
-            branch_values, _spread_positions(len(branch_values), 0.18, 0.82)
-        ):
-            add_node(f"branch::{value}", value, 0.46, y_position)
-
-        color_nodes = order_values(
-            "chromaticity",
-            [
-                str(value)
-                for value in enriched["chromaticity"].dropna().unique().tolist()
-            ],
-        )
-        saturation_nodes = order_values(
-            "saturation_category",
-            [
-                str(value)
-                for value in enriched["saturation_category"].dropna().unique().tolist()
-            ],
-        )
-        luminosity_nodes = order_values(
-            "luminosity_category",
-            [
-                str(value)
-                for value in enriched["luminosity_category"].dropna().unique().tolist()
-            ],
-        )
-        temperature_nodes = order_values(
-            "color_temperature",
-            [
-                str(value)
-                for value in enriched["color_temperature"].dropna().unique().tolist()
-            ],
-        )
-
-        for value, y_position in zip(
-            color_nodes, _spread_positions(len(color_nodes), 0.28, 0.72)
-        ):
-            add_node(f"chromaticity::{value}", value, 0.70, y_position)
-
-        for value, y_position in zip(
-            saturation_nodes, _spread_positions(len(saturation_nodes), 0.12, 0.88)
-        ):
-            add_node(f"saturation_category::{value}", value, 0.70, y_position)
-
-        for value, y_position in zip(
-            luminosity_nodes, _spread_positions(len(luminosity_nodes), 0.12, 0.88)
-        ):
-            add_node(f"luminosity_category::{value}", value, 0.70, y_position)
-
-        for value, y_position in zip(
-            temperature_nodes, _spread_positions(len(temperature_nodes), 0.28, 0.72)
-        ):
-            add_node(f"color_temperature::{value}", value, 0.94, y_position)
-
-        source_nodes: list[int] = []
-        target_nodes: list[int] = []
-        link_values: list[float] = []
-
-        def add_link(source_key: str, target_key: str, value: float) -> None:
-            source_nodes.append(stage_to_index[source_key])
-            target_nodes.append(stage_to_index[target_key])
-            link_values.append(float(max(value, 0.0)))
-
-        type_brand = (
-            enriched
-            .groupby(["type", "username"], dropna=False)[engagement_col]
-            .mean()
-            .reset_index()
-        )
-        for _, row in type_brand.iterrows():
-            if pd.isna(row["type"]) or pd.isna(row["username"]):
-                continue
-            add_link(
-                f"type::{row['type']}",
-                f"username::{row['username']}",
-                row[engagement_col],
-            )
-
-        branch_factor = 3.0
-        brand_means = (
+        # username -> each branch hub (brand total split evenly across 3 branches)
+        brand_totals = (
             enriched
             .groupby("username", dropna=False)[engagement_col]
-            .mean()
+            .sum()
             .reset_index()
         )
-        for _, row in brand_means.iterrows():
+        branch_edges: list[dict[str, object]] = []
+        for _, row in brand_totals.iterrows():
             if pd.isna(row["username"]):
                 continue
-            brand_key = f"username::{row['username']}"
-            for branch in ("color", "saturation", "luminosity"):
-                add_link(
-                    brand_key, f"branch::{branch}", row[engagement_col] / branch_factor
-                )
+            brand_key = node_key("username", str(row["username"]))
+            for branch in ("color", "luminosity", "saturation"):
+                branch_edges.append({
+                    "source": brand_key,
+                    "target": node_key("branch", branch),
+                    "value": row[engagement_col] / 3.0,
+                })
 
-        chromaticity_means = (
-            enriched
-            .groupby("chromaticity", dropna=False)[engagement_col]
-            .mean()
-            .reset_index()
+        # branch::color -> chromaticity
+        branch_color_edges = build_edge_frame(
+            enriched,
+            engagement_col,
+            by=["chromaticity"],
+            source_key="branch::color",
+            target_prefix="chromaticity",
         )
-        for _, row in chromaticity_means.iterrows():
-            if pd.isna(row["chromaticity"]):
-                continue
-            add_link(
-                "branch::color",
-                f"chromaticity::{row['chromaticity']}",
-                row[engagement_col],
-            )
-
-        temperature_means = (
-            enriched
-            .groupby(["chromaticity", "color_temperature"], dropna=False)[
-                engagement_col
-            ]
-            .mean()
-            .reset_index()
+        # branch::luminosity -> luminosity_category
+        luminosity_edges = build_edge_frame(
+            enriched,
+            engagement_col,
+            by=["luminosity_category"],
+            source_key="branch::luminosity",
+            target_prefix="luminosity_category",
         )
-        for _, row in temperature_means.iterrows():
-            if pd.isna(row["chromaticity"]) or pd.isna(row["color_temperature"]):
-                continue
-            add_link(
-                f"chromaticity::{row['chromaticity']}",
-                f"color_temperature::{row['color_temperature']}",
-                row[engagement_col],
-            )
+        # branch::saturation -> saturation_category
+        saturation_edges = build_edge_frame(
+            enriched,
+            engagement_col,
+            by=["saturation_category"],
+            source_key="branch::saturation",
+            target_prefix="saturation_category",
+        )
 
-        for branch, category_column in (
-            ("saturation", "saturation_category"),
-            ("luminosity", "luminosity_category"),
-        ):
-            grouped = (
-                enriched
-                .groupby(category_column, dropna=False)[engagement_col]
-                .mean()
-                .reset_index()
-            )
-            for _, row in grouped.iterrows():
-                if pd.isna(row[category_column]):
-                    continue
-                add_link(
-                    f"branch::{branch}",
-                    f"{category_column}::{row[category_column]}",
-                    row[engagement_col],
-                )
+        # chromaticity -> color_temperature (two-column groupby, then remap keys)
+        temperature_edges = build_edge_frame(
+            enriched,
+            engagement_col,
+            by=["chromaticity", "color_temperature"],
+        )
+        temperature_edges["source"] = temperature_edges["source"].apply(
+            lambda key: node_key("chromaticity", key.split("::", 1)[1])
+        )
+        temperature_edges["target"] = temperature_edges["target"].apply(
+            lambda key: node_key("color_temperature", key)
+        )
+
+        all_edges = pd.concat(
+            [
+                type_to_brand,
+                pd.DataFrame(branch_edges),
+                branch_color_edges,
+                luminosity_edges,
+                saturation_edges,
+                temperature_edges,
+            ],
+            ignore_index=True,
+        )
+
+        # Drop any edges whose source/target was not registered as a node.
+        all_edges = all_edges[
+            all_edges["source"].apply(registry.has)
+            & all_edges["target"].apply(registry.has)
+        ].reset_index(drop=True)
+
+        for _, row in all_edges.iterrows():
+            registry.link(row["source"], row["target"], row["value"])
 
         figure = go.Figure(
             data=[
                 go.Sankey(
                     arrangement="snap",
                     node={
-                        "label": node_labels,
-                        "x": node_x,
-                        "y": node_y,
+                        "label": registry.labels,
+                        "x": registry.x,
+                        "y": registry.y,
                         "pad": 18,
                         "thickness": 16,
                         "line": {"color": "#2a2a2a", "width": 0.5},
                     },
                     link={
-                        "source": source_nodes,
-                        "target": target_nodes,
-                        "value": link_values,
+                        "source": registry.sources,
+                        "target": registry.targets,
+                        "value": registry.values,
                         "color": "rgba(120, 144, 184, 0.35)",
                     },
                 )
             ]
         )
         figure.update_layout(
-            title="Average engagement flow: brand type → brand → color → chromaticity → temperature",
+            title="Engagement flow (sum): brand type → brand → branch → category",
             font_size=12,
             height=620,
             margin={"l": 16, "r": 16, "t": 60, "b": 16},
@@ -598,6 +734,10 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
             figure.write_html(str(output_path))
         return figure
 
+    def _resolve_output(base: Path | None, *parts: str) -> Path | None:
+        """Join parts under base, or return None when base is None."""
+        return base.joinpath(*parts) if base is not None else None
+
     def build_visual_report(
         frame: pd.DataFrame,
         *,
@@ -606,52 +746,50 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
         target_col: str = "likes",
         output_dir: Path | None = None,
     ):
-        output_path = Path(output_dir) if output_dir is not None else None
-        figures = {
+        output_base = Path(output_dir) if output_dir is not None else None
+        has_rgb = {"red", "green", "blue"}.issubset(frame.columns)
+        has_group = group_col in frame.columns
+        boxplots_targets = (
+            (target_col, "engagement_total")
+            if "engagement_total" in frame.columns
+            else (target_col,)
+        )
+
+        figures: dict[str, plt.Figure | None] = {
             "distributions": plot_metric_distributions(
                 frame,
                 numeric_columns,
-                output_path=output_path / "metric_distributions.png"
-                if output_path is not None
-                else None,
+                output_path=_resolve_output(output_base, "metric_distributions.png"),
             ),
             "rgb_channels": plot_rgb_channels(
                 frame,
-                output_path=output_path / "rgb_channels.png"
-                if output_path is not None
-                else None,
+                output_path=_resolve_output(output_base, "rgb_channels.png"),
             )
-            if {"red", "green", "blue"}.issubset(frame.columns)
+            if has_rgb
             else None,
             "boxplots": plot_group_boxplots(
                 frame,
                 group_col,
-                (target_col, "engagement_total")
-                if "engagement_total" in frame.columns
-                else (target_col,),
-                output_path=output_path / f"{group_col}_boxplots.png"
-                if output_path is not None
-                else None,
+                boxplots_targets,
+                output_path=_resolve_output(output_base, f"{group_col}_boxplots.png"),
             )
-            if group_col in frame.columns
+            if has_group
             else None,
             "scatter_grid": plot_scatter_grid(
                 frame,
                 [column for column in numeric_columns if column != target_col],
                 target_col,
-                output_path=output_path / f"{target_col}_scatter_grid.png"
-                if output_path is not None
-                else None,
+                output_path=_resolve_output(
+                    output_base, f"{target_col}_scatter_grid.png"
+                ),
             ),
             "group_means": plot_group_means(
                 frame,
                 group_col,
                 target_col,
-                output_path=output_path / f"{group_col}_means.png"
-                if output_path is not None
-                else None,
+                output_path=_resolve_output(output_base, f"{group_col}_means.png"),
             )
-            if group_col in frame.columns
+            if has_group
             else None,
         }
         return figures
@@ -685,14 +823,12 @@ def _(Path, Sequence, go, np, pd, plt, save_figure, semantic_palette, sns):
 
 @app.cell
 def _(Path, generate_visualizations, load_and_clean_data, set_visual_theme):
-    def run_analysis(csv_path: Path, output_dir: Path, sample_size: int | None = None):
+    def run_analysis(csv_path: Path, output_dir: Path):
         df = load_and_clean_data(csv_path)
-        if sample_size is not None:
-            df = df.head(sample_size)
 
         set_visual_theme()
 
-        generate_visualizations(df, output_dir, "full_dataset")
+        generate_visualizations(df, output_dir, "full")
 
         for segment in ["fast", "luxury"]:
             segment_df = (
@@ -701,7 +837,7 @@ def _(Path, generate_visualizations, load_and_clean_data, set_visual_theme):
                 else df.iloc[0:0]
             )
             if not segment_df.empty:
-                generate_visualizations(segment_df, output_dir, f"{segment}_segment")
+                generate_visualizations(segment_df, output_dir, f"{segment}")
 
         if "username" in df.columns:
             for brand, brand_df in df.groupby("username"):
@@ -709,11 +845,6 @@ def _(Path, generate_visualizations, load_and_clean_data, set_visual_theme):
                     safe_brand = str(brand).strip().lower().replace(" ", "_")
                     generate_visualizations(brand_df, output_dir, f"brand_{safe_brand}")
 
-        cleaned_path = output_dir / "cleaned_dataset.csv"
-        df.to_csv(cleaned_path, index=False)
-
-        print(f"Dataset shape after cleaning: {df.shape}")
-        print(f"Columns: {df.columns.tolist()}")
         print(f"Saved outputs to: {output_dir}")
 
     return (run_analysis,)
@@ -722,7 +853,6 @@ def _(Path, generate_visualizations, load_and_clean_data, set_visual_theme):
 @app.cell
 def _(Path, run_analysis):
     run_analysis(Path("image_analysis_full.csv"), Path("visualization_outputs"))
-    return
 
 
 if __name__ == "__main__":

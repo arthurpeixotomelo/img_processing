@@ -1,13 +1,13 @@
 import marimo
 
-__generated_with = "0.23.15"
+__generated_with = "0.23.16"
 app = marimo.App()
 
 
 @app.cell
 def _():
-    from pathlib import Path
     from collections import Counter
+    from pathlib import Path
 
     import cv2
     import numpy as np
@@ -370,16 +370,11 @@ def _(analyze_dataset, scrape_df):
 
 @app.cell
 def _(analysis_df):
-    # Add engagement total metric for downstream notebooks.
-    if {"likes", "comments"}.issubset(analysis_df.columns):
-        analysis_df["engagement_total"] = analysis_df["likes"] + analysis_df["comments"]
-
-    # Convert predominant_color tuple to string for CSV export and downstream reads.
-    if "predominant_color" in analysis_df.columns:
-        analysis_df["predominant_color"] = analysis_df["predominant_color"].apply(str)
-
-    analysis_df.to_csv("image_analysis_full.csv", index=False)
-    return
+    analysis_pdf = analysis_df.to_pandas()
+    analysis_pdf.assign(
+        engagement_total=analysis_pdf["likes"] + analysis_pdf["comments"],
+        predominant_color=analysis_pdf["predominant_color"].apply(str),
+    ).to_csv("image_analysis_full.csv")
 
 
 if __name__ == "__main__":
