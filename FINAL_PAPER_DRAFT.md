@@ -4,13 +4,34 @@
 
 Understanding the drivers of social media engagement is crucial for digital
 marketing and content creation. This study investigates the impact of visual
-features—specifically color—on user engagement (likes) within a dataset of
-Instagram fashion images. Unlike previous smaller-scale analyses that might have
-indicated strong relationships, this comprehensive study leverages a larger
-dataset to provide more reliable, statistically sound insights regarding the
-relationship between image aesthetics and audience interaction.
+features—specifically color—on user engagement (likes, comments, and total
+interactions) within a dataset of Instagram fashion images. Unlike previous
+smaller-scale analyses that might have indicated strong relationships, this
+comprehensive study leverages a larger dataset to provide more reliable,
+statistically sound insights regarding the relationship between image aesthetics
+and audience interaction.
 
 ## 2. Methodology & Dataset Characteristics
+
+The dataset consists of 7,935 Instagram posts collected across 10 global fashion
+brand accounts, divided into two distinct market segments: **Luxury**
+($n = 4,806$, 60.6%) and **Fast Fashion** ($n = 3,129$, 39.4%).
+
+| Segment / Account Type       | Brand Account   | Images ($n$) | Segment Share (%) | Total Sample Share (%) |
+| :--------------------------- | :-------------- | :----------- | :---------------- | :--------------------- |
+| **All Brands (Full Sample)** | **—**           | **7,935**    | **—**             | **100.0%**             |
+| **Luxury**                   | **Subtotal**    | **4,806**    | **100.0%**        | **60.6%**              |
+| luxury                       | @prada          | 1,375        | 28.6%             | 17.3%                  |
+| luxury                       | @chanelofficial | 1,261        | 26.2%             | 15.9%                  |
+| luxury                       | @louisvuitton   | 1,172        | 24.4%             | 14.8%                  |
+| luxury                       | @dior           | 677          | 14.1%             | 8.5%                   |
+| luxury                       | @gucci          | 321          | 6.7%              | 4.0%                   |
+| **Fast Fashion**             | **Subtotal**    | **3,129**    | **100.0%**        | **39.4%**              |
+| fast fashion                 | @zara           | 835          | 26.7%             | 10.5%                  |
+| fast fashion                 | @mango          | 646          | 20.6%             | 8.1%                   |
+| fast fashion                 | @bershka        | 629          | 20.1%             | 7.9%                   |
+| fast fashion                 | @boohoo         | 580          | 18.5%             | 7.3%                   |
+| fast fashion                 | @stradivarius   | 439          | 14.0%             | 5.5%                   |
 
 The analysis was conducted using only Instagram posts, and when a post contained
 more than one photo, only the first image was included in the dataset. This
@@ -198,7 +219,7 @@ imagery (13.2% low), keeping most content evenly lit (69.5% neutral). Luxury
 accounts use a wider range of lighting: they are more likely than fast-fashion
 to produce both very dark, dramatically lit images (24.2% low) and extremely
 bright ones (22.0% high). In other words, luxury leans on lighting as part of
-its visual identity, while fast-fashion stays in a safe, uniform brightness
+its visual presentation, while fast-fashion stays in a safe, uniform brightness
 range.
 
 ### 3.5 Saturation: Detail
@@ -226,223 +247,423 @@ almost never uses highly vivid colors (1.2%). Luxury is slightly more colorful
 all (4.0%). Across the full sample, low saturation comfortably exceeds the
 neutral and high levels combined.
 
-3.5 graphs and images for each brand
+### 3.6 Overall Visual Flows & Brand Profiles
 
-<!-- bar color chart, bar color temperature chart, sankey diagram -->
+To understand how visual choices translate into engagement at both the aggregate
+and brand levels, we examined the overall flow of audience interaction across
+visual cohorts and analyzed the individual profiles of each analyzed account.
 
-<!-- 2 images per brand: one achromatic, one chromatic -->
+#### 3.6.1 Macro Visual Engagement Flows
 
-## 4. Statistical Analysis
+Across the entire dataset of 7,935 posts, the distribution of engagement across
+color families and temperature cohorts reflects the dominant styling choices of
+the fashion industry:
 
-measurable influence on audience engagement, the analysis combined bivariate
-correlations (Pearson's $r$ and Spearman's $\rho$), two-group mean and rank
-comparisons (One-Way ANOVA and Kruskal-Wallis tests), categorical tests of
-independence ($\chi^2$), and multiple linear regression with variance inflation
-factor (VIF) diagnostics.
+![Full Dataset: Engagement by Color Category](visualization_outputs/full_bar_color_category_engagement.png)
 
-The comparison between achromatic and chromatic images should be reported with
-the final ANOVA result for this exact split. If the distribution of likes
-departs from normality or shows strong dispersion, the Kruskal-Wallis test can
-be used as a robust confirmation of the same pattern. The two tests serve
-different purposes, but they should lead to the same general interpretation:
-whether the visual classification is associated with a meaningful difference in
-engagement. Engagement is evaluated across three outcome metrics: **likes**,
-**comments**, and **total engagement** ($\text{likes} + \text{comments}$).
-Continuous visual attributes include the predominant color channels (Red, Green,
-Blue), the continuous Color Temperature Score, Mean Luminosity, and Mean
-Saturation[^1].
+![Full Dataset: Engagement by Color Temperature](visualization_outputs/full_bar_color_temperature_engagement.png)
 
-### 4.1 Correlation Analysis of Visual Attributes
+![Full Dataset: Engagement Flow Sankey](visualization_outputs/full_sankey_engagement_cohorts.png)
 
-the bivariate relationships between visual attributes and user engagement
-metrics are consistently negligible in magnitude. Although the large sample size
-yields statistical significance ($p < 0.05$) for several visual predictors, the
-correlation coefficients remain exceedingly close to zero ($|r| < 0.05$),
-indicating that isolated visual color dimensions have minimal practical
-predictive power for audience interaction.
-
-#### 4.1.1 Correlation with Likes
-
-- Standard luminosity: r = 0.0629 (p = 0.2149)
-- Standard saturation Likes represent the primary engagement channel by absolute
-  interaction volume. Table 4.1 displays both linear (Pearson $r$) and monotonic
-  rank-order (Spearman $\rho$) correlation coefficients between the six
-  continuous visual features and post likes.
-
-<!-- this is by engagement_total -->
-
-| Visual Attribute        | Pearson $r$ | $p$-value ($r$) | Spearman $\rho$ | $p$-value ($\rho$) |
-| :---------------------- | :---------- | :-------------- | :-------------- | :----------------- |
-| Red Channel (R)         | -0.0392     | 0.0005          | -0.0315         | 0.0049             |
-| Green Channel (G)       | -0.0383     | 0.0006          | -0.0445         | 0.0001             |
-| Blue Channel (B)        | -0.0303     | 0.0070          | -0.0381         | 0.0007             |
-| Color Temperature Score | -0.0391     | 0.0005          | -0.0782         | < 0.0001           |
-| Mean Luminosity         | -0.0415     | 0.0002          | -0.0412         | 0.0002             |
-| Mean Saturation         | +0.0045     | 0.6878          | -0.0032         | 0.7727             |
-
-Taken together, these values indicate that the visual variables examined in this
-study explain very little of the variation in engagement. Both linear and
-rank-based relationships appear negligible, suggesting that the association
-between color properties and likes is weak regardless of the measurement
-approach. _Table 4.1: Bivariate correlation coefficients between visual features
-and likes ($N = 7,935$)._
-
-4.1 likes The Pearson correlation analysis reveals slight negative associations
-between likes and all three RGB color channels, color temperature, and
-luminosity, while saturation exhibits virtually zero linear correlation
-($r = +0.0045, p = 0.6878$). Spearman rank correlations confirm this monotonic
-pattern, with Color Temperature Score exhibiting the highest relative rank
-correlation ($\rho = -0.0782, p < 0.0001$). Even in this case, the proportion of
-shared variance ($R^2 < 0.006$) is trivial.
-
-<!-- highlight the results in correlation for likes with graphs and a table of each attribute -->
-
-#### 4.1.2 Correlation with Comments
-
-4.2 comments Comments reflect a higher-friction form of user engagement than
-likes. Table 4.2 details the associations between visual dimensions and comment
-volume.
-
-| Visual Attribute        | Pearson $r$ | $p$-value ($r$) | Spearman $\rho$ | $p$-value ($\rho$) |
-| :---------------------- | :---------- | :-------------- | :-------------- | :----------------- |
-| Red Channel (R)         | -0.0035     | 0.7533          | -0.0314         | 0.0051             |
-| Green Channel (G)       | -0.0018     | 0.8706          | -0.0446         | 0.0001             |
-| Blue Channel (B)        | +0.0006     | 0.9582          | -0.0405         | 0.0003             |
-| Color Temperature Score | -0.0102     | 0.3613          | -0.0604         | < 0.0001           |
-| Mean Luminosity         | +0.0011     | 0.9220          | -0.0448         | 0.0001             |
-| Mean Saturation         | +0.0012     | 0.9164          | +0.0238         | 0.0339             |
-
-_Table 4.2: Bivariate correlation coefficients between visual features and
-comments ($N = 7,935$)._
-
-In the linear domain, none of the six visual attributes exhibit a statistically
-significant Pearson correlation with comments ($p > 0.35$ for all attributes).
-In the rank-order domain, subtle negative associations emerge for RGB channels,
-luminosity, and temperature, alongside a marginal positive rank correlation for
-saturation ($\rho = +0.0238, p = 0.0339$).
-
-#### 4.1.3 Correlation with Total Engagement
-
-Total engagement aggregates likes and comments
-($\text{engagement\_total} = \text{likes} + \text{comments}$). Because likes
-constitute more than 98.9% of total interactions across the dataset, the
-correlation structure for total engagement closely mirrors that of likes.
-
-| Visual Attribute        | Pearson $r$ | $p$-value ($r$) | Spearman $\rho$ | $p$-value ($\rho$) |
-| :---------------------- | :---------- | :-------------- | :-------------- | :----------------- |
-| Red Channel (R)         | -0.0390     | 0.0005          | -0.0313         | 0.0054             |
-| Green Channel (G)       | -0.0381     | 0.0007          | -0.0444         | 0.0001             |
-| Blue Channel (B)        | -0.0300     | 0.0076          | -0.0380         | 0.0007             |
-| Color Temperature Score | -0.0391     | 0.0005          | -0.0772         | < 0.0001           |
-| Mean Luminosity         | -0.0411     | 0.0002          | -0.0405         | 0.0003             |
-| Mean Saturation         | +0.0045     | 0.6875          | -0.0035         | 0.7523             |
-
-_Table 4.3: Bivariate correlation coefficients between visual features and total
-engagement ($N = 7,935$)._
-
-### 4.2 Group Comparisons: Achromatic vs. Chromatic Images
-
-To test whether categorizing images into neutral (achromatic) versus colorful
-(chromatic) aesthetics produces significant differences in engagement,
-parametric One-Way ANOVA and non-parametric Kruskal-Wallis tests were conducted.
-
-| Metric               | Achromatic ($n = 4,371$) Mean (SD) | Achromatic Median | Chromatic ($n = 3,564$) Mean (SD) | Chromatic Median | ANOVA $F(1, 7933)$ | ANOVA $p$ | Kruskal-Wallis $H(1)$ | Kruskal-Wallis $p$ |
-| :------------------- | :--------------------------------- | :---------------- | :-------------------------------- | :--------------- | :----------------- | :-------- | :-------------------- | :----------------- |
-| **Likes**            | 38,622.2 (120,415.1)               | 17,977.0          | 40,256.6 (118,924.5)              | 18,562.5         | 0.3657             | 0.5454    | 1.8988                | 0.1682             |
-| **Comments**         | 437.1 (5,287.6)                    | 104.0             | 417.2 (2,861.7)                   | 114.0            | 0.0410             | 0.8395    | 11.6097               | 0.0007             |
-| **Total Engagement** | 39,059.3 (121,404.9)               | 18,152.0          | 40,673.7 (120,003.0)              | 18,728.5         | 0.3508             | 0.5537    | 1.9485                | 0.1627             |
-
-_Table 4.4: Comparison of engagement distributions between achromatic and
-chromatic images._
-
-For both likes and total engagement, differences in group means are not
-statistically significant ($F = 0.3657, p = 0.5454$ for likes;
-$F = 0.3508, p = 0.5537$ for total engagement). Due to the positive skewness and
-high variance inherent in social media interaction metrics, the Kruskal-Wallis
-test serves as a robust distribution-free check; it corroborates the absence of
-a meaningful rank shift ($H = 1.8988, p = 0.1682$).
-
-For comments, the parametric ANOVA detects no significant difference in mean
-volume ($F = 0.0410, p = 0.8395$), whereas the Kruskal-Wallis test identifies a
-slight, statistically significant rank difference favoring chromatic posts
-($H = 11.6097, p = 0.0007$), reflected in a marginally higher median comment
-count (114 vs. 104).
-
-### 4.3 Categorical Independence: Brand Segment and Color Choice
-
-A Chi-square ($\chi^2$) test of independence was performed on the contingency
-table cross-classifying brand segment (fast fashion vs. luxury) and chromaticity
-category.
-
-| Segment          | Achromatic ($n$) | Chromatic ($n$) | Total ($n$) | % Achromatic |
-| :--------------- | :--------------- | :-------------- | :---------- | :----------- |
-| **Fast Fashion** | 1,880            | 1,249           | 3,129       | 60.1%        |
-| **Luxury**       | 2,491            | 2,315           | 4,806       | 51.8%        |
-| **Total**        | 4,371            | 3,564           | 7,935       | 55.1%        |
-
-_Table 4.5: Contingency table of brand segment against chromaticity
-classification._
-
-The test indicates a highly significant association between brand segment and
-chromaticity classification ($\chi^2(1) = 51.8275, p = 6.06 \times 10^{-13}$).
-Fast-fashion accounts rely significantly more on neutral/achromatic imagery than
-luxury accounts. When viewed alongside the group comparison tests in Section
-4.2, this demonstrates that visual color distribution is driven primarily by
-brand positioning and curation norms rather than by user engagement feedback.
-
-### 4.4 Multiple Regression and Multicollinearity (VIF)
-
-To determine whether visual attributes jointly predict engagement when
-considered simultaneously, Ordinary Least Squares (OLS) multiple regression
-models were fitted for likes, comments, and total engagement.
-
-| Model Target         | Predictor Variables                      | $R^2$   | Adjusted $R^2$ | $F$-statistic | $p$-value |
-| :------------------- | :--------------------------------------- | :------ | :------------- | :------------ | :-------- |
-| **Likes**            | Red, Green, Blue, Luminosity, Saturation | 0.00349 | 0.00286        | 5.56          | < 0.0001  |
-| **Comments**         | Red, Green, Blue, Luminosity, Saturation | 0.00023 | -0.00040       | 0.36          | 0.8752    |
-| **Total Engagement** | Red, Green, Blue, Luminosity, Saturation | 0.00346 | 0.00284        | 5.51          | < 0.0001  |
-
-_Table 4.6: Multiple regression summary across engagement outcomes._
-
-In the model predicting likes, the full set of five visual predictors explains
-only $0.35\%$ ($R^2 = 0.00349$) of the total variance. For comments, the
-explained variance is virtually zero
-($R^2 = 0.00023, \text{Adjusted } R^2 = -0.00040, p = 0.8752$).
-
-#### Multicollinearity Assessment (VIF)
-
-Variance Inflation Factor (VIF) diagnostics were calculated to evaluate
-collinearity among the continuous visual predictors:
-
-- **Red Channel (R)**: $\text{VIF} = 10.92$
-- **Green Channel (G)**: $\text{VIF} = 46.07$
-- **Blue Channel (B)**: $\text{VIF} = 30.83$
-- **Mean Luminosity**: $\text{VIF} = 3.98$
-- **Mean Saturation**: $\text{VIF} = 1.44$
-
-The elevated VIF values observed among individual color channels reflect natural
-inter-channel covariance in pixel RGB representations (where overall brightness
-shifts R, G, and B simultaneously). Conversely, Mean Luminosity
-($\text{VIF} = 3.98$) and Mean Saturation ($\text{VIF} = 1.44$) remain below
-standard multicollinearity thresholds ($\text{VIF} < 5$). When modeling
-engagement using the composite Color Temperature Score alongside Luminosity and
-Saturation, all VIF values remain strictly low ($\text{VIF} < 1.6$), yielding an
-equivalent overall model fit ($R^2 = 0.00252, p < 0.0001$).
+The macro Sankey flow shows that while Luxury and Fast Fashion generate massive
+interaction volumes through both achromatic and chromatic palettes, engagement
+remains evenly distributed across brightness and saturation tiers rather than
+concentrating in any single visual extreme.
 
 ---
 
-[^1]: **Variable Definitions**:
+#### 3.6.2 Fast-Fashion Brand Profiles
 
-- **Red, Green, Blue Channels**: Scaled 0–255, extracted from the primary
-  cluster center ($k$-means, $k=5$) of image pixel data.
-- **Color Temperature Score**: Continuous warmth metric calculated as
+##### @bershka (Fast Fashion)
+
+Bershka balances neutral catalog photography with high-energy streetwear
+promotions. Warm tones and neutral luminosity carry the majority of audience
+interactions.
+
+- **Visual Performance Charts**:
+  - ![Bershka Engagement by Color Category](visualization_outputs/brand_bershka_bar_color_category_engagement.png)
+  - ![Bershka Engagement by Color Temperature](visualization_outputs/brand_bershka_bar_color_temperature_engagement.png)
+  - ![Bershka Engagement Flow](visualization_outputs/brand_bershka_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (Gray, Warm, Neutral Lum, Low Sat): **101,510 likes**,
+    169 comments ([View Post](https://www.instagram.com/p/CyvtT6nItwI/))
+    ![Bershka Top Achromatic Post](visualization_outputs/brand_bershka_sample_achromatic.jpg)
+  - **Chromatic Leader** (Red, Warm, Neutral Lum, Neutral Sat): **106,782
+    likes**, 549 comments
+    ([View Post](https://www.instagram.com/p/C4nVJCtofcW/))
+    ![Bershka Top Chromatic Post](visualization_outputs/brand_bershka_sample_chromatic.jpg)
+
+##### @boohoo (Fast Fashion)
+
+Boohoo exhibits a high concentration of dark, low-luminosity imagery alongside
+vibrant seasonal drops. Neutral and cool tones perform comparably well.
+
+- **Visual Performance Charts**:
+  - ![Boohoo Engagement by Color Category](visualization_outputs/brand_boohoo_bar_color_category_engagement.png)
+  - ![Boohoo Engagement by Color Temperature](visualization_outputs/brand_boohoo_bar_color_temperature_engagement.png)
+  - ![Boohoo Engagement Flow](visualization_outputs/brand_boohoo_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (Black, Warm, Low Lum, Low Sat): **175,871 likes**, 64
+    comments ([View Post](https://www.instagram.com/p/DEfl5GyOKWf/))
+    ![Boohoo Top Achromatic Post](visualization_outputs/brand_boohoo_sample_achromatic.jpg)
+  - **Chromatic Leader** (Blue, Cool, Low Lum, Neutral Sat): **169,958 likes**,
+    404 comments ([View Post](https://www.instagram.com/p/DP3yhymkWJi/))
+    ![Boohoo Top Chromatic Post](visualization_outputs/brand_boohoo_sample_chromatic.jpg)
+
+##### @mango (Fast Fashion)
+
+Mango relies heavily on crisp, clean, high-luminosity Mediterranean neutrals
+(whites, beiges, creams). White and warm tones dominate their engagement totals.
+
+- **Visual Performance Charts**:
+  - ![Mango Engagement by Color Category](visualization_outputs/brand_mango_bar_color_category_engagement.png)
+  - ![Mango Engagement by Color Temperature](visualization_outputs/brand_mango_bar_color_temperature_engagement.png)
+  - ![Mango Engagement Flow](visualization_outputs/brand_mango_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (White, Warm, Neutral Lum, Low Sat): **228,081
+    likes**, 458 comments
+    ([View Post](https://www.instagram.com/p/DAsbfQAo_fi/))
+    ![Mango Top Achromatic Post](visualization_outputs/brand_mango_sample_achromatic.jpg)
+  - **Chromatic Leader** (Orange, Warm, Neutral Lum, Neutral Sat): **16,142
+    likes**, 196 comments
+    ([View Post](https://www.instagram.com/p/DRkNnY4AY7n/))
+    ![Mango Top Chromatic Post](visualization_outputs/brand_mango_sample_chromatic.jpg)
+
+##### @stradivarius (Fast Fashion)
+
+Stradivarius focuses on bright, accessible lifestyle styling with low saturation
+and warm temperatures across both neutral and colorful pieces.
+
+- **Visual Performance Charts**:
+  - ![Stradivarius Engagement by Color Category](visualization_outputs/brand_stradivarius_bar_color_category_engagement.png)
+  - ![Stradivarius Engagement by Color Temperature](visualization_outputs/brand_stradivarius_bar_color_temperature_engagement.png)
+  - ![Stradivarius Engagement Flow](visualization_outputs/brand_stradivarius_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (White, Warm, High Lum, Low Sat): **30,603 likes**, 42
+    comments ([View Post](https://www.instagram.com/p/C7BjTI7M0d7/))
+    ![Stradivarius Top Achromatic Post](visualization_outputs/brand_stradivarius_sample_achromatic.jpg)
+  - **Chromatic Leader** (Orange, Warm, Neutral Lum, Low Sat): **14,837 likes**,
+    44 comments ([View Post](https://www.instagram.com/p/C6CPWIArOOg/))
+    ![Stradivarius Top Chromatic Post](visualization_outputs/brand_stradivarius_sample_chromatic.jpg)
+
+##### @zara (Fast Fashion)
+
+Zara combines high-contrast editorial studio photography with dramatic lighting.
+High comments volume characterizes their most viral posts.
+
+- **Visual Performance Charts**:
+  - ![Zara Engagement by Color Category](visualization_outputs/brand_zara_bar_color_category_engagement.png)
+  - ![Zara Engagement by Color Temperature](visualization_outputs/brand_zara_bar_color_temperature_engagement.png)
+  - ![Zara Engagement Flow](visualization_outputs/brand_zara_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (White, Warm, High Lum, Low Sat): **340,221 likes**,
+    325,022 comments ([View Post](https://www.instagram.com/p/C0vxGLVu9Vt/))
+    ![Zara Top Achromatic Post](visualization_outputs/brand_zara_sample_achromatic.jpg)
+  - **Chromatic Leader** (Yellow, Warm, Low Lum, High Sat): **240,426 likes**,
+    141,515 comments ([View Post](https://www.instagram.com/p/CzRZ-uzKKLw/))
+    ![Zara Top Chromatic Post](visualization_outputs/brand_zara_sample_chromatic.jpg)
+
+---
+
+#### 3.6.3 Luxury Brand Profiles
+
+##### @chanelofficial (Luxury)
+
+Chanel is renowned for its timeless black-and-white visual presentation,
+punctuated by vibrant haute couture campaigns. Both achromatic and warm
+chromatic imagery achieve top-tier reach.
+
+- **Visual Performance Charts**:
+  - ![Chanel Engagement by Color Category](visualization_outputs/brand_chanelofficial_bar_color_category_engagement.png)
+  - ![Chanel Engagement by Color Temperature](visualization_outputs/brand_chanelofficial_bar_color_temperature_engagement.png)
+  - ![Chanel Engagement Flow](visualization_outputs/brand_chanelofficial_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (White, Warm, High Lum, Low Sat): **946,685 likes**,
+    2,667 comments ([View Post](https://www.instagram.com/p/Crv2i6PNan3/))
+    ![Chanel Top Achromatic Post](visualization_outputs/brand_chanelofficial_sample_achromatic.jpg)
+  - **Chromatic Leader** (Orange, Warm, High Lum, Low Sat): **893,806 likes**,
+    4,558 comments ([View Post](https://www.instagram.com/p/DZzsq53DB_t/))
+    ![Chanel Top Chromatic Post](visualization_outputs/brand_chanelofficial_sample_chromatic.jpg)
+
+##### @dior (Luxury)
+
+Dior features dramatic, high-production runway and campaign imagery. While
+white/neutral backdrops produce massive like counts, moody green/cool hues
+generate strong conversational engagement.
+
+- **Visual Performance Charts**:
+  - ![Dior Engagement by Color Category](visualization_outputs/brand_dior_bar_color_category_engagement.png)
+  - ![Dior Engagement by Color Temperature](visualization_outputs/brand_dior_bar_color_temperature_engagement.png)
+  - ![Dior Engagement Flow](visualization_outputs/brand_dior_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (White, Warm, Neutral Lum, Low Sat): **1,340,782
+    likes**, 14,890 comments
+    ([View Post](https://www.instagram.com/p/DTAKS1bCNbf/))
+    ![Dior Top Achromatic Post](visualization_outputs/brand_dior_sample_achromatic.jpg)
+  - **Chromatic Leader** (Green, Cool, Low Lum, Neutral Sat): **355,814 likes**,
+    5,464 comments ([View Post](https://www.instagram.com/p/DVdSzE6iJjB/))
+    ![Dior Top Chromatic Post](visualization_outputs/brand_dior_sample_chromatic.jpg)
+
+##### @gucci (Luxury)
+
+Gucci is distinguished by its eclectic, maximalist color palettes. Chromatic
+imagery (especially orange and blue hues) frequently outperforms neutral tones.
+
+- **Visual Performance Charts**:
+  - ![Gucci Engagement by Color Category](visualization_outputs/brand_gucci_bar_color_category_engagement.png)
+  - ![Gucci Engagement by Color Temperature](visualization_outputs/brand_gucci_bar_color_temperature_engagement.png)
+  - ![Gucci Engagement Flow](visualization_outputs/brand_gucci_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (Black, Warm, Neutral Lum, Low Sat): **672,353
+    likes**, 4,262 comments
+    ([View Post](https://www.instagram.com/p/DVTlwj7E2dA/))
+    ![Gucci Top Achromatic Post](visualization_outputs/brand_gucci_sample_achromatic.jpg)
+  - **Chromatic Leader** (Orange, Warm, Neutral Lum, Low Sat): **1,073,875
+    likes**, 11,989 comments
+    ([View Post](https://www.instagram.com/p/DVVnJiZDD1R/))
+    ![Gucci Top Chromatic Post](visualization_outputs/brand_gucci_sample_chromatic.jpg)
+
+##### @louisvuitton (Luxury)
+
+Louis Vuitton leads the entire dataset in peak post engagement, driven by
+celebrity ambassadors and high-contrast editorial photography. Dark,
+low-luminosity posts and rich cool tones perform at scale.
+
+- **Visual Performance Charts**:
+  - ![Louis Vuitton Engagement by Color Category](visualization_outputs/brand_louisvuitton_bar_color_category_engagement.png)
+  - ![Louis Vuitton Engagement by Color Temperature](visualization_outputs/brand_louisvuitton_bar_color_temperature_engagement.png)
+  - ![Louis Vuitton Engagement Flow](visualization_outputs/brand_louisvuitton_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (Black, Warm, Low Lum, Low Sat): **3,543,199 likes**,
+    7,834 comments ([View Post](https://www.instagram.com/p/C-uS7lZAUwa/))
+    ![Louis Vuitton Top Achromatic Post](visualization_outputs/brand_louisvuitton_sample_achromatic.jpg)
+  - **Chromatic Leader** (Blue, Cool, Neutral Lum, Neutral Sat): **2,486,338
+    likes**, 24,906 comments
+    ([View Post](https://www.instagram.com/p/CwPAQ6PtA08/))
+    ![Louis Vuitton Top Chromatic Post](visualization_outputs/brand_louisvuitton_sample_chromatic.jpg)
+
+##### @prada (Luxury)
+
+Prada uses minimalist, architectural, and cinematic compositions. Gray and cool
+blue palettes capture the brand's distinctive intellectual visual tone.
+
+- **Visual Performance Charts**:
+  - ![Prada Engagement by Color Category](visualization_outputs/brand_prada_bar_color_category_engagement.png)
+  - ![Prada Engagement by Color Temperature](visualization_outputs/brand_prada_bar_color_temperature_engagement.png)
+  - ![Prada Engagement Flow](visualization_outputs/brand_prada_sankey_engagement_cohorts.png)
+- **Top-Performing Content**:
+  - **Achromatic Leader** (Gray, Warm, Neutral Lum, Low Sat): **2,062,521
+    likes**, 16,187 comments
+    ([View Post](https://www.instagram.com/p/DB8SQPttuHM/))
+    ![Prada Top Achromatic Post](visualization_outputs/brand_prada_sample_achromatic.jpg)
+  - **Chromatic Leader** (Blue, Cool, Low Lum, Neutral Sat): **1,367,335
+    likes**, 4,468 comments
+    ([View Post](https://www.instagram.com/p/DIvcnmPtfEx/))
+    ![Prada Top Chromatic Post](visualization_outputs/brand_prada_sample_chromatic.jpg)
+
+---
+
+## 4. Statistical Analysis
+
+To determine whether an image's visual features have a real impact on audience
+engagement, we tested our dataset of 7,935 Instagram posts using several
+statistical tools. Rather than looking at colors in isolation, we examined how
+individual visual attributes (RGB color channels, warmth, brightness, and
+vividness) connect to **likes**, **comments**, and **total engagement**
+($\text{likes} + \text{comments}$).
+
+Overall, the data delivers a clear verdict: **isolated visual properties have
+virtually no measurable impact on social media engagement.**
+
+### 4.1 Correlation Analysis: Do Visual Attributes Move the Needle?
+
+Correlation measures how closely two variables move together on a scale from
+-1.0 to +1.0 (where 0 means no connection at all, and values above $\pm 0.30$
+indicate a meaningful real-world impact). Across all 7,935 posts, every single
+visual attribute scored between $-0.04$ and $+0.00$, remaining firmly trapped in
+the "No Real Effect" zone.
+
+![Visual Feature Correlation Benchmark vs Real-World Impact Threshold](visualization_outputs/concept_correlation_benchmark.png)
+
+#### 4.1.1 Correlation with Likes
+
+Likes represent the vast majority of social media interactions. If colorful or
+bright images performed better, we would expect positive correlations well above
+zero.
+
+![Visual Feature Correlation with Likes](visualization_outputs/section4_likes_correlation.png)
+
+As shown in the chart above:
+
+- **Red, Green, Blue, Warmth, and Brightness** all hovered near **$r = -0.04$**
+  ($p < 0.001$). While the large sample size makes this tiny negative trend
+  statistically detectable, the effect size is so small that it has no practical
+  consequence in real-world marketing.
+- **Color Vividness (Saturation)** scored **$r = +0.004$** ($p = 0.688$),
+  showing zero linear relationship with likes.
+
+In short, tuning the lighting or color channels of an image will not
+meaningfully increase or decrease its likes.
+
+#### 4.1.2 Correlation with Comments
+
+Leaving a comment requires more effort from a user than tapping "like." We
+examined whether certain colors or lighting styles provoke more user commentary.
+
+![Visual Feature Correlation with Comments](visualization_outputs/section4_comments_correlation.png)
+
+As shown in the chart:
+
+- Every visual feature produced a linear correlation near zero (**$r = -0.003$
+  to $+0.001$**, $p > 0.35$).
+- Looking at overall ranking patterns (rank correlation), warm tones and high
+  brightness showed a very slight negative trend ($\rho = -0.060$), while higher
+  color saturation showed a slight positive trend ($\rho = +0.024$).
+
+This indicates that visual factors do not linearly drive comment volume, though
+saturated colors may occasionally catch a viewer's eye enough to prompt a
+response.
+
+#### 4.1.3 Correlation with Total Engagement
+
+Total engagement combines likes and comments ($\text{Likes} + \text{Comments}$).
+
+![Visual Feature Correlation with Total Engagement](visualization_outputs/section4_total_engagement_correlation.png)
+
+Because likes make up over 98.9% of all interactions, the total engagement
+results mirror the likes analysis almost identically ($r = -0.039$ for color
+channels and brightness; $r = +0.004$ for saturation). Across all combined
+interactions, visual features remain negligible predictors of success.
+
+---
+
+### 4.2 Group Comparisons: Neutral vs. Colorful Images
+
+Instead of looking at continuous sliders for color and brightness, what happens
+if we group images into two broad styles: **Neutral (Achromatic: black, white,
+gray)** versus **Colorful (Chromatic: red, blue, orange, green, etc.)**?
+
+We compared both the mathematical average (mean) and the typical middle-tier
+performance (median) between the two groups using standard comparison tests
+(ANOVA and Kruskal-Wallis).
+
+#### Likes Comparison: Neutral vs. Colorful
+
+![Likes: Neutral vs. Colorful Comparison](visualization_outputs/section4_likes_group_comparison.png)
+
+- **Neutral Posts ($n = 4,371$)**: Average of 38,622 likes (median: 17,977).
+- **Colorful Posts ($n = 3,564$)**: Average of 40,257 likes (median: 18,563).
+- **The Result**: While colorful posts show a slight average lead of ~1,600
+  likes, statistical tests (ANOVA $F = 0.37, p = 0.545$) confirm this gap is
+  completely random posting noise rather than a real advantage.
+
+#### Comments Comparison: Neutral vs. Colorful
+
+![Comments: Neutral vs. Colorful Comparison](visualization_outputs/section4_comments_group_comparison.png)
+
+- **Neutral Posts ($n = 4,371$)**: Average of 437 comments (median: 104).
+- **Colorful Posts ($n = 3,564$)**: Average of 417 comments (median: 114).
+- **The Result**: Although the average comment counts are virtually identical
+  ($F = 0.04, p = 0.840$), colorful posts had a modestly higher median (114 vs.
+  104, Kruskal-Wallis $H = 11.61, p < 0.001$). This suggests that while color
+  does not boost viral reach, it can serve as a subtle conversational hook.
+
+---
+
+### 4.3 Brand Presentation vs. Audience Choice: The Chi-Square Finding
+
+If color has little impact on engagement, why do fast-fashion and luxury
+accounts look so different?
+
+![Visual Strategy by Brand Category: Fast Fashion vs. Luxury](visualization_outputs/section4_brand_presentation_chi_square.png)
+
+Using a Chi-Square test of independence ($\chi^2 = 51.83, p < 0.0001$), we
+evaluated whether brand category influences color choice:
+
+- **Fast-Fashion accounts** chose neutral, achromatic palettes in **60.1%** of
+  their posts ($n = 1,880$), keeping colorful imagery to **39.9%**
+  ($n = 1,249$).
+- **Luxury accounts** chose neutral palettes in **51.8%** of their posts
+  ($n = 2,491$), displaying significantly more colorful imagery (**48.2%**,
+  $n = 2,315$).
+
+Because audience engagement is virtually identical between neutral and colorful
+images across both categories, this statistical discrepancy proves that color
+distribution is driven by intentional **brand presentation**[^1], not audience
+demand. Fast-fashion brands intentionally curate a clean, uniform, neutral look
+to showcase catalog merchandise clearly, whereas luxury brands deliberately
+deploy rich, colorful, and moody palettes as part of their curated editorial
+aesthetic.
+
+---
+
+### 4.4 The 99.6% Reality: Multiple Regression & Multicollinearity
+
+To confirm whether visual features might have a combined impact that single
+features missed, we built a multiple regression model combining Red, Green,
+Blue, Brightness, and Saturation into one predictive formula.
+
+![How Photography Affects Engagement](visualization_outputs/section4_explained_variance_pie.png)
+
+#### The Big Picture:
+
+- **The Combined Visual Model explains only 0.35% of likes ($R^2 = 0.0035$)**
+  and **0.02% of comments**.
+- The remaining **99.65%** of what makes an Instagram post succeed is driven by
+  non-visual factors: brand reputation, caption quality, content relevance,
+  timing, and platform recommendation algorithms.
+
+#### Individual Feature Contribution:
+
+Looking at each visual attribute independently confirms that none of them drive
+engagement on their own:
+
+![Individual Feature Contribution](visualization_outputs/section4_feature_variance_bars.png)
+
+- **Brightness (Luminosity)** explains only **0.17%** ($R^2 = 0.0017$) of likes
+  variance.
+- **Warmth (Color Temperature)**, **Red Hue**, and **Green Hue** each
+  independently explain only **0.15%**.
+- **Blue Hue** explains **0.09%**, and **Saturation** explains **0.00%**.
+  _(Note: Because color channels covary with overall lighting, their individual
+  simple contributions share overlapping variance rather than adding up
+  directly; together in a multiple regression model, their combined predictive
+  power reaches 0.35%.)_
+
+#### Understanding Feature Overlap (Multicollinearity / VIF):
+
+When checking how predictors interact (using Variance Inflation Factor, or VIF),
+we found that Red, Green, and Blue channels naturally move together when an
+image gets brighter (leading to high inter-channel correlation,
+$\text{VIF} > 10$). However, overall **Brightness ($\text{VIF} = 3.98$)** and
+**Saturation ($\text{VIF} = 1.44$)** operate independently. When we simplify the
+model to look at Color Warmth, Brightness, and Saturation, all variables are
+completely independent ($\text{VIF} < 1.6$), confirming that our finding—that
+the visual features analyzed do not drive engagement—is robust and statistically
+sound.
+
+---
+
+[^1]: In this study, **brand presentation** refers specifically to the curated
+    visual style and aesthetic choices—such as lighting setup, color palette
+    selection, and compositional framing—that a brand deliberately uses to
+    present its content to social media audiences. It reflects the account's
+    intentional visual communication strategy rather than consumer-driven
+    demand.
+
+[^2]: **Technical Appendix & Methodology Notes**:
+
+- **Sample Size**: $N = 7,935$ total Instagram posts (Fast fashion: $n = 3,129$;
+  Luxury: $n = 4,806$).
+- **RGB Extraction**: Cluster centers extracted via $k$-means clustering
+  ($k = 5$) on 20,000 sampled image pixels.
+- **Color Warmth Score**: Continuous index calculated as
   $\frac{R \times 1.0 + G \times 0.5}{2} - \frac{B \times 1.0 + G \times 0.3}{2}$.
-  Higher values indicate warmer (red/orange) hues, while lower values indicate
-  cooler (blue/cyan) hues.
-- **Mean Luminosity**: Grayscale intensity computed across all image pixels
-  (0–255).
-- **Mean Saturation**: Mean HSV S-channel intensity computed across all image
-  pixels (0–255).
+- **Luminosity & Saturation**: Extracted from 0–255 grayscale conversion and HSV
+  S-channel respectively.
+- **Full Model Metrics**: Likes model
+  ($F(5, 7929) = 5.56, p < 0.0001, R^2 = 0.00349, \text{Adjusted } R^2 = 0.00286$);
+  Comments model ($F(5, 7929) = 0.36, p = 0.8752, R^2 = 0.00023$).
 
 ## 5. Discussion
 
@@ -453,8 +674,8 @@ it does not produce a strong separation in likes.
 
 This supports a multifactorial interpretation of social media engagement.
 Factors such as content relevance, audience interest, posting time, caption
-quality, account identity, and platform dynamics are likely more important than
-the presence or absence of visible color alone. In that sense, the image itself
+quality, account reach, and platform dynamics are likely more important than the
+presence or absence of visible color alone. In that sense, the image itself
 should be treated as only one component of a broader engagement context.
 
 From a methodological point of view, the simplified classification scheme is

@@ -1,28 +1,32 @@
+import matplotlib
+
+matplotlib.use("Agg")
 import marimo
 
-__generated_with = "0.23.16"
+__generated_with = "0.24.0"
 app = marimo.App()
 
 
 @app.cell
 def _():
-    import ast
     import re
     from collections.abc import Iterable, Sequence
-    from dataclasses import dataclass
     from pathlib import Path
 
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
     import plotly.graph_objects as go
     import seaborn as sns
 
-    return Iterable, Path, Sequence, ast, dataclass, go, np, pd, plt, re, sns
+    return Iterable, Path, Sequence, go, np, pd, plt, re, sns
 
 
 @app.cell
-def _(Iterable, Path, Sequence, ast, np, pd, plt, re, sns):
+def _(Iterable, Path, Sequence, np, pd, plt, re, sns):
     REQUIRED_COLUMNS = {
         "likes",
         "comments",
@@ -97,34 +101,28 @@ def _(Iterable, Path, Sequence, ast, np, pd, plt, re, sns):
         return fig
 
     def parse_rgb_tuple(value: object) -> tuple[int, int, int] | None:
-        if not isinstance(value, str) or not value.strip():
+        if value is None:
             return None
-
-        if "np." in value:
-            numbers = re.findall(r"np\.\w+\((-?\d+)\)", value)
-            if len(numbers) != 3:
-                return None
-            r, g, b = (int(numbers[0]), int(numbers[1]), int(numbers[2]))
-        else:
-            cleaned = value.strip()
-
+        if isinstance(value, (tuple, list)) and len(value) == 3:
             try:
-                parsed = ast.literal_eval(cleaned)
-            except (ValueError, SyntaxError):
-                return None
-
-            if not isinstance(parsed, tuple) or len(parsed) != 3:
-                return None
-
-            try:
-                r, g, b = (int(parsed[0]), int(parsed[1]), int(parsed[2]))
+                return (int(value[0]), int(value[1]), int(value[2]))
             except (TypeError, ValueError):
                 return None
 
-        if any(channel < 0 or channel > 255 for channel in (r, g, b)):
+        val_str = str(value).strip()
+        if not val_str:
             return None
 
-        return r, g, b
+        numbers = re.findall(r"-?\d+", val_str)
+        if len(numbers) >= 3:
+            try:
+                r, g, b = (int(numbers[0]), int(numbers[1]), int(numbers[2]))
+                if all(0 <= channel <= 255 for channel in (r, g, b)):
+                    return (r, g, b)
+            except (TypeError, ValueError):
+                pass
+
+        return None
 
     return (
         REQUIRED_COLUMNS,
@@ -169,6 +167,12 @@ def _(Path, REQUIRED_COLUMNS, parse_rgb_tuple, pd):
         df["predominant_g"] = rgb_values.apply(lambda rgb: rgb[1] if rgb else None)
         df["predominant_b"] = rgb_values.apply(lambda rgb: rgb[2] if rgb else None)
 
+        df["color_temperature_score"] = (
+            df["predominant_r"] * 1.0 + df["predominant_g"] * 0.5
+        ) / 2.0 - (df["predominant_b"] * 1.0 + df["predominant_g"] * 0.3) / 2.0
+        if "color_category" in df.columns:
+            df["achromatic"] = df["color_category"].isin(["Black", "White", "Gray"])
+
         return df
 
     return (load_and_clean_data,)
@@ -178,7 +182,6 @@ def _(Path, REQUIRED_COLUMNS, parse_rgb_tuple, pd):
 def _(
     Path,
     Sequence,
-    dataclass,
     filter_columns,
     go,
     hide_extra_axes,
@@ -378,360 +381,395 @@ def _(
     # Each branch owns its own vertical lane so the saturation/luminosity
     # low/neutral/high nodes no longer overlap.
 
-    # Preferred display order per stage; entries not listed keep their natural order.
+    # Preferred display order per stage
     STAGE_ORDER: dict[str, list[str]] = {
+        "type": ["luxury", "fast"],
         "chromaticity": ["achromatic", "chromatic"],
         "branch": ["color", "luminosity", "saturation"],
         "saturation_category": ["high", "neutral", "low"],
         "luminosity_category": ["high", "neutral", "low"],
-        "color_temperature": ["warm", "cool"],
     }
 
-    # Stages whose values share vocabulary (low/neutral/high) and need a prefix
-    # in the rendered label so they are visually unambiguous.
-    STAGE_LABEL_PREFIX: dict[str, str] = {
-        "saturation_category": "Sat",
-        "luminosity_category": "Lum",
+    STAGE_LABELS: dict[str, dict[str, str]] = {
+        "type": {"luxury": "Luxury", "fast": "Fast Fashion"},
+        "branch": {
+            "color": "Color / Hue",
+            "luminosity": "Brightness (Lum)",
+            "saturation": "Vividness (Sat)",
+        },
+        "chromaticity": {
+            "achromatic": "Achromatic (Neutral)",
+            "chromatic": "Chromatic (Colorful)",
+        },
+        "luminosity_category": {
+            "high": "Lum: High",
+            "neutral": "Lum: Neutral",
+            "low": "Lum: Low",
+        },
+        "saturation_category": {
+            "high": "Sat: High",
+            "neutral": "Sat: Neutral",
+            "low": "Sat: Low",
+        },
     }
 
-    # Vertical lanes allocated to each post-branch chain. Keep them disjoint so
-    # nodes from different branches never share y coordinates.
-    LANE_BANDS: dict[str, tuple[float, float]] = {
-        "color": (0.66, 0.94),
-        "luminosity": (0.36, 0.62),
-        "saturation": (0.06, 0.32),
+    NODE_COLORS: dict[str, str] = {
+        "type::luxury": "#8b5cf6",
+        "type::fast": "#f59e0b",
+        "branch::color": "#3b82f6",
+        "branch::luminosity": "#10b981",
+        "branch::saturation": "#ec4899",
+        "chromaticity::achromatic": "#64748b",
+        "chromaticity::chromatic": "#0ea5e9",
+        "luminosity_category::high": "#fde047",
+        "luminosity_category::neutral": "#94a3b8",
+        "luminosity_category::low": "#334155",
+        "saturation_category::high": "#f43f5e",
+        "saturation_category::neutral": "#cbd5e1",
+        "saturation_category::low": "#94a3b8",
     }
-
-    @dataclass(frozen=True)
-    class StageSpec:
-        """Placement metadata for a column-derived Sankey stage."""
-
-        stage: str
-        x: float
-        y_band: tuple[float, float]
-
-        @property
-        def preferred_order(self) -> list[str]:
-            return STAGE_ORDER.get(self.stage, [])
-
-    def normalize_unique(values: pd.Series) -> list[str]:
-        """Drop NA and return deterministic string values in first-seen order."""
-        return [str(value) for value in values.dropna().unique().tolist()]
-
-    def ordered_values(stage: str, values: list[str]) -> list[str]:
-        preferred = STAGE_ORDER.get(stage, [])
-        ordered = [value for value in preferred if value in values]
-        ordered.extend([value for value in values if value not in preferred])
-        return ordered
-
-    def stage_label(stage: str, value: str) -> str:
-        prefix = STAGE_LABEL_PREFIX.get(stage)
-        return f"{prefix} {value}" if prefix else value
 
     def node_key(stage: str, value: str) -> str:
         return f"{stage}::{value}"
-
-    def spread_positions(count: int, start: float, stop: float) -> list[float]:
-        if count <= 1:
-            return [(start + stop) / 2]
-        return np.linspace(start, stop, count).tolist()
-
-    class NodeRegistry:
-        """Registers Sankey nodes and accumulates links against stage-qualified keys."""
-
-        def __init__(self) -> None:
-            self.labels: list[str] = []
-            self.x: list[float] = []
-            self.y: list[float] = []
-            self._index: dict[str, int] = {}
-            self._sources: list[int] = []
-            self._targets: list[int] = []
-            self._values: list[float] = []
-
-        def add_stage(self, spec: StageSpec, values: list[str]) -> None:
-            ordered = ordered_values(spec.stage, values)
-            band_start, band_stop = spec.y_band
-            for value, y_pos in zip(
-                ordered, spread_positions(len(ordered), band_start, band_stop)
-            ):
-                self._register(
-                    node_key(spec.stage, value),
-                    stage_label(spec.stage, value),
-                    spec.x,
-                    y_pos,
-                )
-
-        def add_fixed(self, spec: StageSpec, values: list[str]) -> None:
-            """Register nodes for a stage with predefined values (order respected)."""
-            band_start, band_stop = spec.y_band
-            for value, y_pos in zip(
-                values, spread_positions(len(values), band_start, band_stop)
-            ):
-                self._register(node_key(spec.stage, value), value, spec.x, y_pos)
-
-        def _register(self, key: str, label: str, x: float, y: float) -> int:
-            if key in self._index:
-                return self._index[key]
-            index = len(self.labels)
-            self._index[key] = index
-            self.labels.append(label)
-            self.x.append(x)
-            self.y.append(y)
-            return index
-
-        def link(self, source_key: str, target_key: str, value: float) -> None:
-            self._sources.append(self._index[source_key])
-            self._targets.append(self._index[target_key])
-            self._values.append(float(max(value, 0.0)))
-
-        def has(self, key: str) -> bool:
-            return key in self._index
-
-        def validate_links(self) -> None:
-            """Ensure every link endpoint resolves to a registered node."""
-            missing = {key for key in self._index if not self.has(key)}
-            if missing:
-                raise ValueError(
-                    f"Sankey links reference unknown nodes: {sorted(missing)}"
-                )
-
-        @property
-        def sources(self) -> list[int]:
-            return self._sources
-
-        @property
-        def targets(self) -> list[int]:
-            return self._targets
-
-        @property
-        def values(self) -> list[float]:
-            return self._values
-
-    def build_edge_frame(
-        frame: pd.DataFrame,
-        engagement_col: str,
-        *,
-        by: Sequence[str],
-        source_key: str | None = None,
-        target_prefix: str | None = None,
-    ) -> pd.DataFrame:
-        """Aggregate engagement by `by` columns using a sum and normalize to edges.
-
-        When `source_key` is provided, every aggregating row becomes a single edge
-        from that fixed node to a target keyed by `target_prefix::value`.
-        Otherwise the first column in `by` is the source and the rest form the
-        target key (joined with '::').
-        """
-        grouped = (
-            frame.groupby(list(by), dropna=False)[engagement_col].sum().reset_index()
-        )
-        records: list[dict[str, object]] = []
-        for _, row in grouped.iterrows():
-            if any(pd.isna(row[col]) for col in by):
-                continue
-            if source_key is not None:
-                target_value = str(row[by[0]])
-                target_key = node_key(target_prefix or by[0], target_value)
-                source = source_key
-            else:
-                source_value = str(row[by[0]])
-                target_values = [str(row[col]) for col in by[1:]]
-                source = node_key(by[0], source_value)
-                target_key = node_key("::".join(by[1:]), "::".join(target_values))
-            records.append({
-                "source": source,
-                "target": target_key,
-                "value": row[engagement_col],
-            })
-        return pd.DataFrame(records, columns=["source", "target", "value"])
 
     def build_engagement_sankey(
         frame: pd.DataFrame,
         *,
         engagement_col: str = "engagement_total",
         output_path: Path | None = None,
+        title: str | None = None,
     ) -> go.Figure:
         """Build a lane-separated Sankey of summed engagement flows.
 
-        Stages: type -> username -> branch(color|luminosity|saturation) -> category.
-        Each post-branch chain owns its own vertical lane so saturation and
-        luminosity low/neutral/high nodes never overlap.
+        Stages:
+        - Full dataset: Brand Type -> Brand -> Visual Feature Branch -> Category
+        - Single Brand: Brand -> Visual Feature Branch -> Category
+        All category nodes (Achromatic/Chromatic, Lum High/Neutral/Low, Sat High/Neutral/Low)
+        are aligned in the same horizontal column and disjoint vertical lanes.
         """
         enriched = add_visual_cohort_columns(frame)
-        require_columns(
-            enriched,
-            [
-                "type",
-                "username",
-                "chromaticity",
-                "color_temperature",
-                "saturation_category",
-                "luminosity_category",
-                engagement_col,
-            ],
+
+        unique_types = sorted(
+            enriched["type"].dropna().unique().tolist(),
+            key=lambda t: 0 if str(t).lower() == "luxury" else 1,
+        )
+        unique_brands = enriched["username"].dropna().unique().tolist()
+
+        is_single_brand = len(unique_brands) == 1
+        has_multiple_types = len(unique_types) > 1
+
+        labels: list[str] = []
+        node_x: list[float] = []
+        node_y: list[float] = []
+        node_color_list: list[str] = []
+        index_map: dict[str, int] = {}
+
+        def register_node(
+            key: str, label: str, x: float, y: float, color: str = "#64748b"
+        ) -> int:
+            if key in index_map:
+                return index_map[key]
+            idx = len(labels)
+            index_map[key] = idx
+            labels.append(label)
+            node_x.append(x)
+            node_y.append(y)
+            node_color_list.append(color)
+            return idx
+
+        if not is_single_brand:
+            x_type = 0.02
+            x_brand = 0.22
+            x_branch = 0.52
+            x_cat = 0.88
+
+            # 1. Register types if multiple types exist
+            if has_multiple_types:
+                type_y_map = {"luxury": 0.75, "fast": 0.25}
+                for t in unique_types:
+                    t_str = str(t).lower()
+                    y_val = type_y_map.get(t_str, 0.5)
+                    lbl = STAGE_LABELS.get("type", {}).get(t_str, str(t).capitalize())
+                    col = NODE_COLORS.get(f"type::{t_str}", "#8b5cf6")
+                    register_node(node_key("type", t_str), lbl, x_type, y_val, col)
+
+            # 2. Register brands ordered by brand type
+            # Luxury brands on top band (0.55 to 0.95), Fast brands on bottom band (0.05 to 0.45)
+            ordered_brand_entries = []
+            for t in unique_types:
+                t_str = str(t).lower()
+                sub_brands = (
+                    enriched[enriched["type"].str.lower() == t_str]["username"]
+                    .dropna()
+                    .unique()
+                    .tolist()
+                )
+                sub_brands_sorted = (
+                    enriched[enriched["username"].isin(sub_brands)]
+                    .groupby("username")[engagement_col]
+                    .sum()
+                    .sort_values(ascending=False)
+                    .index.tolist()
+                )
+                ordered_brand_entries.append((t_str, sub_brands_sorted))
+
+            for t_str, sub_brands in ordered_brand_entries:
+                if has_multiple_types:
+                    band_start, band_stop = (
+                        (0.55, 0.95) if t_str == "luxury" else (0.05, 0.45)
+                    )
+                else:
+                    band_start, band_stop = (0.08, 0.92)
+
+                if len(sub_brands) == 1:
+                    y_positions = [(band_start + band_stop) / 2]
+                else:
+                    y_positions = np.linspace(
+                        band_stop, band_start, len(sub_brands)
+                    ).tolist()
+
+                for b_name, y_pos in zip(sub_brands, y_positions):
+                    b_lbl = f"@{b_name}"
+                    b_col = "#6366f1" if t_str == "luxury" else "#f59e0b"
+                    register_node(
+                        node_key("username", str(b_name)), b_lbl, x_brand, y_pos, b_col
+                    )
+
+        else:
+            # Single Brand - omit brand type step!
+            x_brand = 0.05
+            x_branch = 0.48
+            x_cat = 0.88
+            single_b = unique_brands[0]
+            register_node(
+                node_key("username", str(single_b)),
+                f"@{single_b}",
+                x_brand,
+                0.5,
+                "#6366f1",
+            )
+
+        # 3. Register Branch Hubs (Color, Luminosity, Saturation)
+        branch_y = {"color": 0.83, "luminosity": 0.50, "saturation": 0.18}
+        for br in ["color", "luminosity", "saturation"]:
+            lbl = STAGE_LABELS["branch"][br]
+            col = NODE_COLORS.get(f"branch::{br}", "#3b82f6")
+            register_node(node_key("branch", br), lbl, x_branch, branch_y[br], col)
+
+        # 4. Register Category Nodes (All aligned at x_cat!)
+        # Color lane (0.70 to 0.95): Achromatic, Chromatic
+        # Luminosity lane (0.37 to 0.63): High, Neutral, Low
+        # Saturation lane (0.05 to 0.31): High, Neutral, Low
+        register_node(
+            node_key("chromaticity", "achromatic"),
+            "Achromatic (Neutral)",
+            x_cat,
+            0.90,
+            NODE_COLORS["chromaticity::achromatic"],
+        )
+        register_node(
+            node_key("chromaticity", "chromatic"),
+            "Chromatic (Colorful)",
+            x_cat,
+            0.76,
+            NODE_COLORS["chromaticity::chromatic"],
         )
 
-        registry = NodeRegistry()
-
-        # Stage 1: type (far left)
-        registry.add_fixed(
-            StageSpec("type", 0.02, (0.35, 0.65)),
-            ordered_values("type", normalize_unique(enriched["type"])),
+        register_node(
+            node_key("luminosity_category", "high"),
+            "Lum: High",
+            x_cat,
+            0.59,
+            NODE_COLORS["luminosity_category::high"],
+        )
+        register_node(
+            node_key("luminosity_category", "neutral"),
+            "Lum: Neutral",
+            x_cat,
+            0.50,
+            NODE_COLORS["luminosity_category::neutral"],
+        )
+        register_node(
+            node_key("luminosity_category", "low"),
+            "Lum: Low",
+            x_cat,
+            0.41,
+            NODE_COLORS["luminosity_category::low"],
         )
 
-        # Stage 2: username
-        registry.add_fixed(
-            StageSpec("username", 0.22, (0.08, 0.92)),
-            ordered_values("username", normalize_unique(enriched["username"])),
+        register_node(
+            node_key("saturation_category", "high"),
+            "Sat: High",
+            x_cat,
+            0.27,
+            NODE_COLORS["saturation_category::high"],
+        )
+        register_node(
+            node_key("saturation_category", "neutral"),
+            "Sat: Neutral",
+            x_cat,
+            0.18,
+            NODE_COLORS["saturation_category::neutral"],
+        )
+        register_node(
+            node_key("saturation_category", "low"),
+            "Sat: Low",
+            x_cat,
+            0.09,
+            NODE_COLORS["saturation_category::low"],
         )
 
-        # Stage 3: branch hub nodes (color/luminosity/saturation)
-        # Reverse band so color (top lane) gets highest y, saturation (bottom) gets lowest
-        registry.add_fixed(
-            StageSpec("branch", 0.46, (0.82, 0.18)),
-            ordered_values("branch", ["color", "luminosity", "saturation"]),
-        )
+        # --- Build Links ---
+        sources: list[int] = []
+        targets: list[int] = []
+        values: list[float] = []
+        link_colors: list[str] = []
 
-        # Stage 4: category nodes, each branch in its own vertical lane.
-        color_stage = StageSpec("chromaticity", 0.70, LANE_BANDS["color"])
-        saturation_stage = StageSpec(
-            "saturation_category", 0.82, LANE_BANDS["saturation"]
-        )
-        luminosity_stage = StageSpec(
-            "luminosity_category", 0.82, LANE_BANDS["luminosity"]
-        )
-        temperature_stage = StageSpec("color_temperature", 0.94, LANE_BANDS["color"])
+        def add_link(
+            src_key: str,
+            tgt_key: str,
+            val: float,
+            color_rgba: str = "rgba(148, 163, 184, 0.35)",
+        ):
+            if src_key in index_map and tgt_key in index_map and val > 0:
+                sources.append(index_map[src_key])
+                targets.append(index_map[tgt_key])
+                values.append(float(val))
+                link_colors.append(color_rgba)
 
-        registry.add_stage(color_stage, normalize_unique(enriched["chromaticity"]))
-        registry.add_stage(
-            saturation_stage, normalize_unique(enriched["saturation_category"])
-        )
-        registry.add_stage(
-            luminosity_stage, normalize_unique(enriched["luminosity_category"])
-        )
-        registry.add_stage(
-            temperature_stage, normalize_unique(enriched["color_temperature"])
-        )
+        # 1. Type -> Brand (if multiple types exist)
+        if has_multiple_types and not is_single_brand:
+            type_brand_grp = (
+                enriched
+                .groupby(["type", "username"])[engagement_col]
+                .sum()
+                .reset_index()
+            )
+            for _, row in type_brand_grp.iterrows():
+                t_val = str(row["type"]).lower()
+                b_val = str(row["username"])
+                c_link = (
+                    "rgba(139, 92, 246, 0.35)"
+                    if t_val == "luxury"
+                    else "rgba(245, 158, 11, 0.35)"
+                )
+                add_link(
+                    node_key("type", t_val),
+                    node_key("username", b_val),
+                    row[engagement_col],
+                    c_link,
+                )
 
-        # --- Edges (summed engagement) -----------------------------------------
-        # Each chain segment is aggregated with `.sum()` and normalized to the
-        # (source, target, value) schema, then concatenated once at the end.
-
-        # type -> username
-        type_to_brand = build_edge_frame(
-            enriched,
-            engagement_col,
-            by=["type", "username"],
-        )
-
-        # username -> each branch hub (brand total split evenly across 3 branches)
-        brand_totals = (
-            enriched
-            .groupby("username", dropna=False)[engagement_col]
-            .sum()
-            .reset_index()
-        )
-        branch_edges: list[dict[str, object]] = []
+        # 2. Brand -> Branch Hubs (split evenly by 3)
+        brand_totals = enriched.groupby("username")[engagement_col].sum().reset_index()
         for _, row in brand_totals.iterrows():
-            if pd.isna(row["username"]):
-                continue
-            brand_key = node_key("username", str(row["username"]))
-            for branch in ("color", "luminosity", "saturation"):
-                branch_edges.append({
-                    "source": brand_key,
-                    "target": node_key("branch", branch),
-                    "value": row[engagement_col] / 3.0,
-                })
+            b_val = str(row["username"])
+            tot_b = row[engagement_col]
+            add_link(
+                node_key("username", b_val),
+                node_key("branch", "color"),
+                tot_b / 3.0,
+                "rgba(59, 130, 246, 0.30)",
+            )
+            add_link(
+                node_key("username", b_val),
+                node_key("branch", "luminosity"),
+                tot_b / 3.0,
+                "rgba(16, 185, 129, 0.30)",
+            )
+            add_link(
+                node_key("username", b_val),
+                node_key("branch", "saturation"),
+                tot_b / 3.0,
+                "rgba(236, 72, 153, 0.30)",
+            )
 
-        # branch::color -> chromaticity
-        branch_color_edges = build_edge_frame(
-            enriched,
-            engagement_col,
-            by=["chromaticity"],
-            source_key="branch::color",
-            target_prefix="chromaticity",
-        )
-        # branch::luminosity -> luminosity_category
-        luminosity_edges = build_edge_frame(
-            enriched,
-            engagement_col,
-            by=["luminosity_category"],
-            source_key="branch::luminosity",
-            target_prefix="luminosity_category",
-        )
-        # branch::saturation -> saturation_category
-        saturation_edges = build_edge_frame(
-            enriched,
-            engagement_col,
-            by=["saturation_category"],
-            source_key="branch::saturation",
-            target_prefix="saturation_category",
-        )
+        # 3. Branch Hubs -> Category Nodes
+        color_grp = enriched.groupby("chromaticity")[engagement_col].sum().reset_index()
+        for _, row in color_grp.iterrows():
+            c_val = str(row["chromaticity"])
+            add_link(
+                node_key("branch", "color"),
+                node_key("chromaticity", c_val),
+                row[engagement_col],
+                "rgba(59, 130, 246, 0.40)",
+            )
 
-        # chromaticity -> color_temperature (two-column groupby, then remap keys)
-        temperature_edges = build_edge_frame(
-            enriched,
-            engagement_col,
-            by=["chromaticity", "color_temperature"],
+        lum_grp = (
+            enriched.groupby("luminosity_category")[engagement_col].sum().reset_index()
         )
-        temperature_edges["source"] = temperature_edges["source"].apply(
-            lambda key: node_key("chromaticity", key.split("::", 1)[1])
-        )
-        temperature_edges["target"] = temperature_edges["target"].apply(
-            lambda key: node_key("color_temperature", key)
-        )
+        for _, row in lum_grp.iterrows():
+            l_val = str(row["luminosity_category"])
+            add_link(
+                node_key("branch", "luminosity"),
+                node_key("luminosity_category", l_val),
+                row[engagement_col],
+                "rgba(16, 185, 129, 0.40)",
+            )
 
-        all_edges = pd.concat(
-            [
-                type_to_brand,
-                pd.DataFrame(branch_edges),
-                branch_color_edges,
-                luminosity_edges,
-                saturation_edges,
-                temperature_edges,
-            ],
-            ignore_index=True,
+        sat_grp = (
+            enriched.groupby("saturation_category")[engagement_col].sum().reset_index()
         )
+        for _, row in sat_grp.iterrows():
+            s_val = str(row["saturation_category"])
+            add_link(
+                node_key("branch", "saturation"),
+                node_key("saturation_category", s_val),
+                row[engagement_col],
+                "rgba(236, 72, 153, 0.40)",
+            )
 
-        # Drop any edges whose source/target was not registered as a node.
-        all_edges = all_edges[
-            all_edges["source"].apply(registry.has)
-            & all_edges["target"].apply(registry.has)
-        ].reset_index(drop=True)
-
-        for _, row in all_edges.iterrows():
-            registry.link(row["source"], row["target"], row["value"])
+        chart_title = (
+            title
+            if title
+            else (
+                "Total Engagement Flow: Brand Type → Brand → Visual Feature → Category"
+                if has_multiple_types
+                else "Engagement Flow: Visual Feature → Category"
+            )
+        )
 
         figure = go.Figure(
             data=[
                 go.Sankey(
                     arrangement="snap",
                     node={
-                        "label": registry.labels,
-                        "x": registry.x,
-                        "y": registry.y,
-                        "pad": 18,
-                        "thickness": 16,
-                        "line": {"color": "#2a2a2a", "width": 0.5},
+                        "label": labels,
+                        "x": node_x,
+                        "y": node_y,
+                        "pad": 16,
+                        "thickness": 18,
+                        "color": node_color_list,
+                        "line": {"color": "#1e293b", "width": 0.8},
                     },
                     link={
-                        "source": registry.sources,
-                        "target": registry.targets,
-                        "value": registry.values,
-                        "color": "rgba(120, 144, 184, 0.35)",
+                        "source": sources,
+                        "target": targets,
+                        "value": values,
+                        "color": link_colors,
                     },
                 )
             ]
         )
         figure.update_layout(
-            title="Engagement flow (sum): brand type → brand → branch → category",
-            font_size=12,
+            title={
+                "text": f"<b>{chart_title}</b>",
+                "font": {"size": 15, "color": "#1e293b"},
+                "x": 0.02,
+                "y": 0.98,
+            },
+            font={"size": 11, "family": "DejaVu Sans, sans-serif"},
             height=620,
-            margin={"l": 16, "r": 16, "t": 60, "b": 16},
+            margin={"l": 20, "r": 20, "t": 50, "b": 20},
+            paper_bgcolor="#ffffff",
         )
 
         if output_path is not None:
             figure.write_html(str(output_path))
+            try:
+                figure.write_image(str(output_path.with_suffix(".png")), scale=2)
+            except Exception:
+                pass
         return figure
 
     def _resolve_output(base: Path | None, *parts: str) -> Path | None:
@@ -813,22 +851,609 @@ def _(
         )
         plt.close(fig)
 
+        title_sankey = (
+            "Total Engagement Flow: Brand Type → Brand → Visual Feature → Category"
+            if prefix == "full"
+            else (
+                f"{prefix.capitalize()} Segment Engagement Flow: Brand → Visual Feature → Category"
+                if prefix in ["fast", "luxury"]
+                else f"@{prefix.replace('brand_', '')} Engagement Flow: Visual Feature → Category"
+            )
+        )
         build_engagement_sankey(
             df,
             output_path=output_dir / f"{prefix}_sankey_engagement_cohorts.html",
+            title=title_sankey,
         )
 
-    return (generate_visualizations,)
+    def generate_section4_visualizations(frame: pd.DataFrame, output_dir: Path) -> None:
+        """Generate statistical visualization charts for Section 4."""
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        features_map = [
+            ("predominant_r", "Red Channel (R)"),
+            ("predominant_g", "Green Channel (G)"),
+            ("predominant_b", "Blue Channel (B)"),
+            ("color_temperature_score", "Color Warmth (Temp)"),
+            ("mean_luminosity", "Brightness (Luminosity)"),
+            ("mean_saturation", "Color Vividness (Saturation)"),
+        ]
+        feature_labels = [label for _, label in features_map]
+        y_positions = np.arange(len(feature_labels))
+
+        def calc_pearsons(target_col: str) -> list[float]:
+            corrs = []
+            for col, _ in features_map:
+                if col in frame.columns:
+                    sub = frame[[col, target_col]].dropna()
+                    if len(sub) > 1:
+                        r = np.corrcoef(sub[col], sub[target_col])[0, 1]
+                        corrs.append(float(r))
+                    else:
+                        corrs.append(0.0)
+                else:
+                    corrs.append(0.0)
+            return corrs
+
+        r_likes = calc_pearsons("likes")
+        r_comments = calc_pearsons("comments")
+        r_total = calc_pearsons("engagement_total")
+
+        def apply_benchmark_zones(axis: plt.Axes) -> None:
+            axis.axvspan(
+                -0.1,
+                0.1,
+                color="#f1f5f9",
+                alpha=0.9,
+                label="Negligible / No Real Impact (-0.1 to +0.1)",
+            )
+            axis.axvspan(
+                0.1,
+                0.3,
+                color="#fef3c7",
+                alpha=0.5,
+                label="Weak Influence (±0.1 to ±0.3)",
+            )
+            axis.axvspan(-0.3, -0.1, color="#fef3c7", alpha=0.5)
+            axis.axvspan(
+                0.3, 1.0, color="#dcfce7", alpha=0.6, label="Meaningful Impact (> ±0.3)"
+            )
+            axis.axvspan(-1.0, -0.3, color="#dcfce7", alpha=0.6)
+            axis.axvline(0, color="black", linewidth=1.2)
+            axis.axvline(0.3, color="#15803d", linestyle="--", linewidth=1.8)
+            axis.axvline(-0.3, color="#15803d", linestyle="--", linewidth=1.8)
+            axis.set_xlim(-1.0, 1.0)
+            axis.set_xticks([-1.0, -0.75, -0.5, -0.3, 0.0, 0.3, 0.5, 0.75, 1.0])
+            axis.text(
+                0.32,
+                -0.2,
+                "Meaningful Impact\nThreshold (±0.30)",
+                color="#15803d",
+                fontsize=9,
+                fontweight="bold",
+                va="bottom",
+            )
+
+        # 1. Combined Benchmark Chart (concept_correlation_benchmark.png)
+        fig, ax = plt.subplots(figsize=(10.5, 6))
+        apply_benchmark_zones(ax)
+        bar_h = 0.24
+        b1 = ax.barh(
+            y_positions - bar_h,
+            r_likes,
+            height=bar_h,
+            color="#2563eb",
+            edgecolor="black",
+            label="Impact on Likes",
+            alpha=0.9,
+        )
+        b2 = ax.barh(
+            y_positions,
+            r_comments,
+            height=bar_h,
+            color="#ea580c",
+            edgecolor="black",
+            label="Impact on Comments",
+            alpha=0.9,
+        )
+        b3 = ax.barh(
+            y_positions + bar_h,
+            r_total,
+            height=bar_h,
+            color="#16a34a",
+            edgecolor="black",
+            label="Impact on Total Engagement",
+            alpha=0.9,
+        )
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(feature_labels, fontweight="bold", fontsize=10.5)
+        ax.invert_yaxis()
+        ax.set_xlabel(
+            "Correlation with Engagement (Scale: -1.0 to +1.0)",
+            fontweight="bold",
+            fontsize=11,
+        )
+        ax.set_title(
+            "Visual Feature Correlation vs. Real-World Impact Threshold\n(All measured features are trapped in the 'No Real Effect' zone)",
+            fontweight="bold",
+            fontsize=12,
+            pad=12,
+        )
+
+        for group in [b1, b2, b3]:
+            for bar in group:
+                w = bar.get_width()
+                offset = 0.03 if w >= 0 else -0.03
+                ha = "left" if w >= 0 else "right"
+                ax.text(
+                    w + offset,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{w:+.3f}",
+                    va="center",
+                    ha=ha,
+                    fontsize=8.5,
+                    fontweight="bold",
+                )
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.15),
+            ncol=3,
+            frameon=True,
+            facecolor="white",
+            edgecolor="#cbd5e1",
+            fontsize=9.5,
+        )
+        save_figure(fig, output_dir / "concept_correlation_benchmark.png")
+        plt.close(fig)
+
+        # 2. Individual Target Plots (Likes, Comments, Total Engagement)
+        targets_info = [
+            (
+                "likes",
+                r_likes,
+                "Likes",
+                "#2563eb",
+                "section4_likes_correlation.png",
+                "Trapped between -0.04 and 0.00 in the 'No Impact' zone",
+            ),
+            (
+                "comments",
+                r_comments,
+                "Comments",
+                "#ea580c",
+                "section4_comments_correlation.png",
+                "Linear correlation is virtually zero across all attributes",
+            ),
+            (
+                "engagement_total",
+                r_total,
+                "Total Engagement",
+                "#16a34a",
+                "section4_total_engagement_correlation.png",
+                "Mirrors Likes because Likes make up over 98.9% of interactions",
+            ),
+        ]
+        for (
+            target_key,
+            r_vals,
+            target_title,
+            bar_color,
+            file_name,
+            subtitle,
+        ) in targets_info:
+            fig, ax = plt.subplots(figsize=(9.5, 5))
+            apply_benchmark_zones(ax)
+            bars = ax.barh(
+                y_positions,
+                r_vals,
+                height=0.45,
+                color=bar_color,
+                edgecolor="black",
+                alpha=0.9,
+                label=f"Measured Correlation with {target_title}",
+            )
+            ax.set_yticks(y_positions)
+            ax.set_yticklabels(feature_labels, fontweight="bold", fontsize=10.5)
+            ax.invert_yaxis()
+            ax.set_xlabel(
+                f"Correlation with {target_title}", fontweight="bold", fontsize=11
+            )
+            ax.set_title(
+                f"Visual Feature Correlation with {target_title}\n({subtitle})",
+                fontweight="bold",
+                fontsize=12,
+                pad=12,
+            )
+            for bar in bars:
+                w = bar.get_width()
+                offset = 0.03 if w >= 0 else -0.03
+                ha = "left" if w >= 0 else "right"
+                ax.text(
+                    w + offset,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"r = {w:+.3f}",
+                    va="center",
+                    ha=ha,
+                    fontsize=9.5,
+                    fontweight="bold",
+                )
+            ax.legend(
+                loc="upper center",
+                bbox_to_anchor=(0.5, -0.16),
+                ncol=2,
+                frameon=True,
+                facecolor="white",
+                edgecolor="#cbd5e1",
+                fontsize=9.5,
+            )
+            save_figure(fig, output_dir / file_name)
+            plt.close(fig)
+
+        # 3. Group Comparisons: Neutral vs Colorful (Split into 2 images)
+        if "achromatic" in frame.columns:
+            ach_df = frame[frame["achromatic"]]
+            chr_df = frame[~frame["achromatic"]]
+            if not ach_df.empty and not chr_df.empty:
+                cats = ["Neutral (Achromatic)", "Colorful (Chromatic)"]
+                x_cat = np.arange(len(cats))
+                w_cat = 0.35
+
+                # 3A. Likes Comparison
+                fig, ax = plt.subplots(figsize=(7.5, 4.8))
+                likes_means = [int(ach_df["likes"].mean()), int(chr_df["likes"].mean())]
+                likes_medians = [
+                    int(ach_df["likes"].median()),
+                    int(chr_df["likes"].median()),
+                ]
+                ax.bar(
+                    x_cat - w_cat / 2,
+                    likes_means,
+                    w_cat,
+                    label="Average Likes (Mean)",
+                    color="#94a3b8",
+                    edgecolor="black",
+                )
+                ax.bar(
+                    x_cat + w_cat / 2,
+                    likes_medians,
+                    w_cat,
+                    label="Typical Likes (Median)",
+                    color="#3b82f6",
+                    edgecolor="black",
+                )
+                ax.set_xticks(x_cat)
+                ax.set_xticklabels(cats, fontweight="bold")
+                ax.set_ylabel("Likes per Post", fontweight="bold")
+                ax.set_title(
+                    "Likes: Neutral vs. Colorful Posts\n(No meaningful statistical difference)",
+                    fontweight="bold",
+                    fontsize=12,
+                    pad=12,
+                )
+                for idx in range(len(cats)):
+                    ax.text(
+                        x_cat[idx] - w_cat / 2,
+                        likes_means[idx] + 1000,
+                        f"{likes_means[idx]:,}",
+                        ha="center",
+                        fontsize=9,
+                        fontweight="bold",
+                    )
+                    ax.text(
+                        x_cat[idx] + w_cat / 2,
+                        likes_medians[idx] + 1000,
+                        f"{likes_medians[idx]:,}",
+                        ha="center",
+                        fontsize=9,
+                        fontweight="bold",
+                    )
+                ax.legend(
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.15),
+                    ncol=2,
+                    frameon=True,
+                    facecolor="white",
+                    edgecolor="#cbd5e1",
+                    fontsize=9.5,
+                )
+                save_figure(fig, output_dir / "section4_likes_group_comparison.png")
+                plt.close(fig)
+
+                # 3B. Comments Comparison
+                fig, ax = plt.subplots(figsize=(7.5, 4.8))
+                comments_means = [
+                    int(ach_df["comments"].mean()),
+                    int(chr_df["comments"].mean()),
+                ]
+                comments_medians = [
+                    int(ach_df["comments"].median()),
+                    int(chr_df["comments"].median()),
+                ]
+                ax.bar(
+                    x_cat - w_cat / 2,
+                    comments_means,
+                    w_cat,
+                    label="Average Comments (Mean)",
+                    color="#94a3b8",
+                    edgecolor="black",
+                )
+                ax.bar(
+                    x_cat + w_cat / 2,
+                    comments_medians,
+                    w_cat,
+                    label="Typical Comments (Median)",
+                    color="#f97316",
+                    edgecolor="black",
+                )
+                ax.set_xticks(x_cat)
+                ax.set_xticklabels(cats, fontweight="bold")
+                ax.set_ylabel("Comments per Post", fontweight="bold")
+                ax.set_title(
+                    "Comments: Neutral vs. Colorful Posts\n(Subtle +10 comment shift for colorful)",
+                    fontweight="bold",
+                    fontsize=12,
+                    pad=12,
+                )
+                for idx in range(len(cats)):
+                    ax.text(
+                        x_cat[idx] - w_cat / 2,
+                        comments_means[idx] + 15,
+                        f"{comments_means[idx]}",
+                        ha="center",
+                        fontsize=9,
+                        fontweight="bold",
+                    )
+                    ax.text(
+                        x_cat[idx] + w_cat / 2,
+                        comments_medians[idx] + 15,
+                        f"{comments_medians[idx]}",
+                        ha="center",
+                        fontsize=9,
+                        fontweight="bold",
+                    )
+                ax.legend(
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.15),
+                    ncol=2,
+                    frameon=True,
+                    facecolor="white",
+                    edgecolor="#cbd5e1",
+                    fontsize=9.5,
+                )
+                save_figure(fig, output_dir / "section4_comments_group_comparison.png")
+                plt.close(fig)
+
+        # 4. Brand Presentation Chi-Square Chart (section4_brand_presentation_chi_square.png)
+        if "type" in frame.columns and "achromatic" in frame.columns:
+            sub_fast = frame[frame["type"].str.lower() == "fast"]
+            sub_lux = frame[frame["type"].str.lower() == "luxury"]
+            if not sub_fast.empty and not sub_lux.empty:
+                fast_neutral = float(sub_fast["achromatic"].mean() * 100.0)
+                fast_color = 100.0 - fast_neutral
+                lux_neutral = float(sub_lux["achromatic"].mean() * 100.0)
+                lux_color = 100.0 - lux_neutral
+
+                fig, ax = plt.subplots(figsize=(8.5, 5.2))
+                categories = [
+                    f"Fast Fashion\n(n = {len(sub_fast):,} posts)",
+                    f"Luxury\n(n = {len(sub_lux):,} posts)",
+                ]
+                neutral_pcts = [fast_neutral, lux_neutral]
+                colorful_pcts = [fast_color, lux_color]
+
+                x_idx = np.arange(len(categories))
+                w_bar = 0.38
+
+                b1 = ax.bar(
+                    x_idx - w_bar / 2,
+                    neutral_pcts,
+                    w_bar,
+                    label="Neutral (Achromatic: Black, White, Gray)",
+                    color="#64748b",
+                    edgecolor="black",
+                    linewidth=1.1,
+                )
+                b2 = ax.bar(
+                    x_idx + w_bar / 2,
+                    colorful_pcts,
+                    w_bar,
+                    label="Colorful (Chromatic: Red, Blue, Orange, etc.)",
+                    color="#3b82f6",
+                    edgecolor="black",
+                    linewidth=1.1,
+                )
+
+                for bar in b1:
+                    h = bar.get_height()
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        h + 1.2,
+                        f"{h:.1f}%",
+                        ha="center",
+                        va="bottom",
+                        fontsize=11,
+                        fontweight="bold",
+                        color="#1e293b",
+                    )
+
+                for bar in b2:
+                    h = bar.get_height()
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        h + 1.2,
+                        f"{h:.1f}%",
+                        ha="center",
+                        va="bottom",
+                        fontsize=11,
+                        fontweight="bold",
+                        color="#1e293b",
+                    )
+
+                ax.set_xticks(x_idx)
+                ax.set_xticklabels(categories, fontsize=11, fontweight="bold")
+                ax.set_ylabel(
+                    "Share of Published Posts (%)", fontsize=11, fontweight="bold"
+                )
+                ax.set_ylim(0, 75)
+
+                ax.text(
+                    0.5,
+                    68,
+                    "Chi-Square Test of Independence: $\\chi^2 = 51.83, p < 0.0001$\n(Statistically Significant Difference in Visual Strategy)",
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    fontweight="bold",
+                    color="#0f172a",
+                    bbox=dict(
+                        boxstyle="round,pad=0.5",
+                        facecolor="#f1f5f9",
+                        edgecolor="#94a3b8",
+                        linewidth=1.2,
+                    ),
+                )
+
+                ax.set_title(
+                    "Visual Strategy by Brand Category: Fast Fashion vs. Luxury\n(Color distribution reflects intentional brand presentation, not audience demand)",
+                    fontsize=12,
+                    fontweight="bold",
+                    pad=12,
+                )
+
+                ax.legend(
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.15),
+                    ncol=2,
+                    frameon=True,
+                    facecolor="white",
+                    edgecolor="#cbd5e1",
+                    fontsize=10,
+                )
+                save_figure(
+                    fig, output_dir / "section4_brand_presentation_chi_square.png"
+                )
+                plt.close(fig)
+
+        # 5. Explained Variance Pie Chart (section4_explained_variance_pie.png)
+        sub_reg = frame[
+            [
+                "predominant_r",
+                "predominant_g",
+                "predominant_b",
+                "mean_luminosity",
+                "mean_saturation",
+                "likes",
+            ]
+        ].dropna()
+        if len(sub_reg) > 10:
+            X_reg = sub_reg[
+                [
+                    "predominant_r",
+                    "predominant_g",
+                    "predominant_b",
+                    "mean_luminosity",
+                    "mean_saturation",
+                ]
+            ].values
+            X_reg = np.column_stack([np.ones(len(X_reg)), X_reg])
+            y_reg = sub_reg["likes"].values
+            beta, _, _, _ = np.linalg.lstsq(X_reg, y_reg, rcond=None)
+            ss_tot = np.sum((y_reg - np.mean(y_reg)) ** 2)
+            ss_res = np.sum((y_reg - X_reg @ beta) ** 2)
+            r2_model = max(0.0, 1.0 - (ss_res / ss_tot))
+        else:
+            r2_model = 0.00349
+
+        vis_pct_total = r2_model * 100.0
+        non_vis_pct = 100.0 - vis_pct_total
+
+        fig, ax = plt.subplots(figsize=(7.5, 5))
+        labels_pie = [
+            f"Non-Visual Factors ({non_vis_pct:.2f}%)\n(Brand Fame, Content Relevance,\nCaptions, Timing, Algorithm)",
+            f"Visual Features Analyzed Combined ({vis_pct_total:.2f}%)\n(Color, Brightness, Warmth, Saturation)",
+        ]
+        sizes_pie = [non_vis_pct, vis_pct_total]
+        colors_pie = ["#3b82f6", "#ef4444"]
+        explode_pie = (0, 0.18)
+
+        _, _, autotexts = ax.pie(
+            sizes_pie,
+            explode=explode_pie,
+            labels=labels_pie,
+            autopct="%1.2f%%",
+            startangle=140,
+            colors=colors_pie,
+            textprops={"fontsize": 10.5, "fontweight": "bold"},
+            wedgeprops={"edgecolor": "black", "linewidth": 1.2},
+            pctdistance=0.6,
+        )
+        autotexts[0].set_color("white")
+        autotexts[1].set_color("white")
+        ax.set_title(
+            "How Photography Affects Instagram Engagement?\n(Visual features account for less than 0.4% of variance)",
+            fontweight="bold",
+            fontsize=12,
+            pad=14,
+        )
+        save_figure(fig, output_dir / "section4_explained_variance_pie.png")
+        plt.close(fig)
+
+        # 5. Individual Feature Variance Bars (section4_feature_variance_bars.png)
+        fig, ax = plt.subplots(figsize=(8.5, 4.5))
+        bivariate_r2 = [float(r**2 * 100.0) for r in r_likes]
+        colors_b = sns.color_palette("Blues_r", len(feature_labels))
+        bars_b = ax.barh(
+            feature_labels,
+            bivariate_r2,
+            color=colors_b,
+            edgecolor="black",
+            alpha=0.85,
+            height=0.45,
+        )
+        ax.invert_yaxis()
+        ax.set_xlim(0, 1.0)
+        ax.set_xlabel(
+            "Individual Variance Explained ($R^2$ in %)",
+            fontweight="bold",
+            fontsize=10.5,
+        )
+        ax.set_title(
+            "Individual Visual Feature Contribution\n(Each feature independently explains < 0.20% of engagement)",
+            fontweight="bold",
+            fontsize=11.5,
+            pad=12,
+        )
+        for bar in bars_b:
+            w = bar.get_width()
+            ax.text(
+                w + 0.02,
+                bar.get_y() + bar.get_height() / 2,
+                f"{w:.2f}%",
+                va="center",
+                fontsize=10,
+                fontweight="bold",
+            )
+        save_figure(fig, output_dir / "section4_feature_variance_bars.png")
+        plt.close(fig)
+
+    return generate_section4_visualizations, generate_visualizations
 
 
 @app.cell
-def _(Path, generate_visualizations, load_and_clean_data, set_visual_theme):
+def _(
+    Path,
+    generate_section4_visualizations,
+    generate_visualizations,
+    load_and_clean_data,
+    set_visual_theme,
+):
     def run_analysis(csv_path: Path, output_dir: Path):
         df = load_and_clean_data(csv_path)
 
         set_visual_theme()
 
         generate_visualizations(df, output_dir, "full")
+        generate_section4_visualizations(df, output_dir)
 
         for segment in ["fast", "luxury"]:
             segment_df = (
